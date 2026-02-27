@@ -39,6 +39,19 @@ Thumbs.db
 frontend/dist/
 *.log
 
+# Docs, build prompts, and audit/review reports
+docs/
+build_prompts.md
+backend_build.md
+
+# Secrets and credentials
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+secrets.json
+
 # Docker
 postgres_data/
 redis_data/
