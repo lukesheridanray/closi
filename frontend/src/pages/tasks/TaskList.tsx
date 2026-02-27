@@ -105,8 +105,8 @@ export default function TaskList() {
       label: 'Task',
       sortable: true,
       render: (t) => {
-        const dueDate = new Date(t.due_date)
-        const isOverdue = t.status !== 'completed' && t.status !== 'cancelled' && isPast(dueDate) && !isToday(dueDate)
+        const dueDate = t.due_date ? new Date(t.due_date) : null
+        const isOverdue = dueDate && t.status !== 'completed' && t.status !== 'cancelled' && isPast(dueDate) && !isToday(dueDate)
         return (
           <div className="flex items-center gap-2">
             {/* Complete button */}
@@ -197,12 +197,12 @@ export default function TaskList() {
       label: 'Due Date',
       sortable: true,
       render: (t) => {
-        const dueDate = new Date(t.due_date)
-        const isOverdue = t.status !== 'completed' && t.status !== 'cancelled' && isPast(dueDate) && !isToday(dueDate)
-        const isDueToday = isToday(dueDate)
+        const dueDate = t.due_date ? new Date(t.due_date) : null
+        const isOverdue = dueDate && t.status !== 'completed' && t.status !== 'cancelled' && isPast(dueDate) && !isToday(dueDate)
+        const isDueToday = dueDate ? isToday(dueDate) : false
         return (
           <span className={`text-sm ${isOverdue ? 'text-danger font-medium' : isDueToday ? 'text-warning font-medium' : 'text-body'}`}>
-            {isDueToday ? 'Today' : format(dueDate, 'MMM d, yyyy')}
+            {!dueDate ? 'No date' : isDueToday ? 'Today' : format(dueDate, 'MMM d, yyyy')}
           </span>
         )
       },

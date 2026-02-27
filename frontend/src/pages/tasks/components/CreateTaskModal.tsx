@@ -42,7 +42,7 @@ export default function CreateTaskModal({ onClose, prefillContactId, prefillDeal
       due_time: dueTime || null,
       duration_minutes: 30,
       is_all_day: !dueTime,
-      recurrence: null,
+      recurrence: 'none',
     })
     onClose()
   }

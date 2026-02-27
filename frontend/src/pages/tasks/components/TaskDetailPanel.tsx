@@ -31,9 +31,9 @@ export default function TaskDetailPanel({ task }: TaskDetailPanelProps) {
     ? contacts.find((c) => c.id === task.contact_id)
     : null
 
-  const dueDate = new Date(task.due_date)
-  const isOverdue = task.status !== 'completed' && task.status !== 'cancelled' && isPast(dueDate) && !isToday(dueDate)
-  const isDueToday = isToday(dueDate)
+  const dueDate = task.due_date ? new Date(task.due_date) : null
+  const isOverdue = dueDate && task.status !== 'completed' && task.status !== 'cancelled' && isPast(dueDate) && !isToday(dueDate)
+  const isDueToday = dueDate ? isToday(dueDate) : false
 
   return (
     <div className="space-y-6">
@@ -75,7 +75,7 @@ export default function TaskDetailPanel({ task }: TaskDetailPanelProps) {
           <Field
             icon={Calendar}
             label="Due Date"
-            value={format(dueDate, 'MMM d, yyyy')}
+            value={dueDate ? format(dueDate, 'MMM d, yyyy') : 'No date'}
             valueClass={isOverdue ? 'text-danger font-medium' : isDueToday ? 'text-warning font-medium' : ''}
           />
           {task.due_time && (

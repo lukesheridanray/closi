@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { FileText, Phone, CheckSquare, X } from 'lucide-react'
 import useContactStore from '@/stores/contactStore'
 import useTaskStore from '@/stores/taskStore'
+import { activitiesApi } from '@/lib/api'
 import type { ActivityType } from '@/types/contact'
 import type { TaskType, TaskPriority } from '@/types/task'
 import { TASK_TYPE_LABELS, TASK_PRIORITY_LABELS } from '@/types/task'
@@ -101,16 +102,16 @@ function QuickActionModal({
   contactId: string
   onClose: () => void
 }) {
-  const addActivity = useContactStore((s) => s.addActivity)
+  const fetchActivities = useContactStore((s) => s.fetchActivities)
   const config = modalConfig[type]
   const [subject, setSubject] = useState('')
   const [description, setDescription] = useState('')
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!subject.trim()) return
 
-    addActivity({
+    await activitiesApi.create({
       contact_id: contactId,
       deal_id: null,
       type: config.activityType,
@@ -119,6 +120,7 @@ function QuickActionModal({
       performed_by: 'You',
       performed_at: new Date().toISOString(),
     })
+    fetchActivities(contactId)
     onClose()
   }
 
@@ -218,7 +220,7 @@ function QuickTaskModal({
       due_time: null,
       duration_minutes: 30,
       is_all_day: true,
-      recurrence: null,
+      recurrence: 'none',
     })
     onClose()
   }

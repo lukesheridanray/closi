@@ -41,11 +41,11 @@ export default function ContractDetailPanel({ contract }: ContractDetailPanelPro
   useEffect(() => { fetchPayments({ contract_id: contract.id }) }, [contract.id, fetchPayments])
 
   const contact = contacts.find((c) => c.id === contract.contact_id)
-  const daysUntilEnd = differenceInDays(new Date(contract.end_date), new Date())
+  const daysUntilEnd = contract.end_date ? differenceInDays(new Date(contract.end_date), new Date()) : 0
   const totalPaid = payments
     .filter((p) => p.status === 'succeeded')
     .reduce((sum, p) => sum + p.amount, 0)
-  const monthsAsCustomer = Math.max(1, Math.round(differenceInDays(new Date(), new Date(contract.start_date)) / 30))
+  const monthsAsCustomer = contract.start_date ? Math.max(1, Math.round(differenceInDays(new Date(), new Date(contract.start_date)) / 30)) : 0
 
   return (
     <div className="space-y-6">
@@ -75,8 +75,8 @@ export default function ContractDetailPanel({ contract }: ContractDetailPanelPro
           Contract Details
         </h4>
         <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-          <Field label="Start Date" value={format(new Date(contract.start_date), 'MMM d, yyyy')} />
-          <Field label="End Date" value={format(new Date(contract.end_date), 'MMM d, yyyy')} />
+          <Field label="Start Date" value={contract.start_date ? format(new Date(contract.start_date), 'MMM d, yyyy') : 'N/A'} />
+          <Field label="End Date" value={contract.end_date ? format(new Date(contract.end_date), 'MMM d, yyyy') : 'N/A'} />
           <Field
             label="Days Until Renewal"
             value={daysUntilEnd > 0 ? `${daysUntilEnd} days` : 'Expired'}

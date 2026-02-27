@@ -77,7 +77,7 @@ export default function ContactDetail({ contact, onBack }: ContactDetailProps) {
     failedCount >= 2 ? 'red' : failedCount === 1 ? 'yellow' : 'green'
   const paymentHealthColors = { green: 'text-success', yellow: 'text-warning', red: 'text-danger' }
   const paymentHealthLabels = { green: 'Current', yellow: '1 Missed', red: 'Past Due' }
-  const tenure = activeContract
+  const tenure = activeContract?.start_date
     ? Math.max(1, Math.round((new Date().getTime() - new Date(activeContract.start_date).getTime()) / (1000 * 60 * 60 * 24 * 30)))
     : 0
 
@@ -249,10 +249,10 @@ export default function ContactDetail({ contact, onBack }: ContactDetailProps) {
               <div className="space-y-2">
                 {contactTasks
                   .filter((t) => t.status !== 'cancelled')
-                  .sort((a, b) => a.due_date.localeCompare(b.due_date))
+                  .sort((a, b) => (a.due_date ?? '').localeCompare(b.due_date ?? ''))
                   .map((task) => {
-                    const dueDate = new Date(task.due_date)
-                    const isOverdue = task.status !== 'completed' && isPast(dueDate) && !isToday(dueDate)
+                    const dueDate = task.due_date ? new Date(task.due_date) : null
+                    const isOverdue = dueDate && task.status !== 'completed' && isPast(dueDate) && !isToday(dueDate)
                     return (
                       <div
                         key={task.id}
