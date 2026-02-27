@@ -1,5 +1,4 @@
 from pydantic_settings import BaseSettings
-from pydantic import field_validator
 from functools import lru_cache
 
 
@@ -22,18 +21,12 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 60
     refresh_token_expire_days: int = 30
 
-    # CORS - accepts comma-separated string or JSON array
-    cors_origins: list[str] = ["http://localhost:5173"]
+    # CORS - comma-separated string (e.g. "https://foo.com,https://bar.com" or "*")
+    cors_origins: str = "http://localhost:5173"
 
-    @field_validator("cors_origins", mode="before")
-    @classmethod
-    def parse_cors_origins(cls, v):
-        if isinstance(v, str):
-            if v.startswith("["):
-                import json
-                return json.loads(v)
-            return [origin.strip() for origin in v.split(",")]
-        return v
+    @property
+    def cors_origins_list(self) -> list[str]:
+        return [origin.strip() for origin in self.cors_origins.split(",")]
 
     # Email (Resend)
     resend_api_key: str = ""
