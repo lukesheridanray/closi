@@ -10,8 +10,16 @@ import { TASK_TYPE_LABELS, TASK_PRIORITY_LABELS } from '@/types/task'
 import useContactStore from '@/stores/contactStore'
 import usePipelineStore from '@/stores/pipelineStore'
 import useTaskStore, { useTasksForContact } from '@/stores/taskStore'
+import { useContractsForContact, usePaymentsForContact } from '@/stores/contractStore'
 import ActivityTimeline from './ActivityTimeline'
 import QuickActions from './QuickActions'
+
+const currencyFormat = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+})
 
 const statusColors: Record<string, string> = {
   new: 'bg-info/10 text-info',
@@ -32,9 +40,25 @@ export default function ContactDetail({ contact, onBack }: ContactDetailProps) {
   const stages = usePipelineStore((s) => s.stages)
   const contactTasks = useTasksForContact(contact.id)
   const completeTask = useTaskStore((s) => s.completeTask)
+  const contactContracts = useContractsForContact(contact.id)
+  const contactPayments = usePaymentsForContact(contact.id)
 
   const contactActivities = activities.filter((a) => a.contact_id === contact.id)
   const contactDeals = deals.filter((d) => d.contact_id === contact.id)
+
+  // Subscription summary calculations
+  const activeContract = contactContracts.find((c) => c.status === 'active')
+  const totalRevenue = contactPayments
+    .filter((p) => p.status === 'succeeded')
+    .reduce((sum, p) => sum + p.amount, 0)
+  const failedCount = contactPayments.filter((p) => p.status === 'failed').length
+  const paymentHealth: 'green' | 'yellow' | 'red' =
+    failedCount >= 2 ? 'red' : failedCount === 1 ? 'yellow' : 'green'
+  const paymentHealthColors = { green: 'text-success', yellow: 'text-warning', red: 'text-danger' }
+  const paymentHealthLabels = { green: 'Current', yellow: '1 Missed', red: 'Past Due' }
+  const tenure = activeContract
+    ? Math.max(1, Math.round((new Date().getTime() - new Date(activeContract.start_date).getTime()) / (1000 * 60 * 60 * 24 * 30)))
+    : 0
 
   return (
     <div>
@@ -163,6 +187,35 @@ export default function ContactDetail({ contact, onBack }: ContactDetailProps) {
               </div>
             )}
           </div>
+
+          {/* Subscription summary card */}
+          {activeContract && (
+            <div className="rounded-xl border border-border bg-white p-5 shadow-card">
+              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Subscription
+              </h3>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+                <div>
+                  <dt className="text-xs text-muted-foreground">Monthly Amount</dt>
+                  <dd className="mt-0.5 text-lg font-bold text-primary">{currencyFormat.format(activeContract.monthly_amount)}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted-foreground">Payment Health</dt>
+                  <dd className={`mt-0.5 text-sm font-semibold ${paymentHealthColors[paymentHealth]}`}>
+                    {paymentHealthLabels[paymentHealth]}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted-foreground">Tenure</dt>
+                  <dd className="mt-0.5 text-sm font-medium text-heading">{tenure} months</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-muted-foreground">Lifetime Revenue</dt>
+                  <dd className="mt-0.5 text-sm font-medium text-heading">{currencyFormat.format(totalRevenue)}</dd>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Tasks card */}
           <div className="rounded-xl border border-border bg-white p-5 shadow-card">

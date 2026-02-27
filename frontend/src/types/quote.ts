@@ -1,0 +1,43 @@
+export interface QuoteLine {
+  id: string
+  product_name: string
+  quantity: number
+  unit_price: number
+  total: number
+}
+
+export interface MonitoringPlan {
+  monthly_amount: number
+  term_months: number
+  auto_renewal: boolean
+}
+
+export interface Quote {
+  id: string
+  org_id: string
+  deal_id: string
+  contact_id: string
+  created_by: string
+  title: string
+  status: QuoteStatus
+  equipment_lines: QuoteLine[]
+  equipment_total: number
+  monitoring: MonitoringPlan
+  total_contract_value: number
+  notes: string
+  valid_until: string | null
+  sent_at: string | null
+  accepted_at: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type QuoteStatus = 'draft' | 'sent' | 'accepted' | 'rejected' | 'expired'
+
+export const QUOTE_STATUS_LABELS: Record<QuoteStatus, string> = {
+  draft: 'Draft',
+  sent: 'Sent',
+  accepted: 'Accepted',
+  rejected: 'Rejected',
+  expired: 'Expired',
+}
