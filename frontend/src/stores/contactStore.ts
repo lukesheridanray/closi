@@ -32,6 +32,8 @@ interface ContactState {
   setSort: (field: SortField) => void
   setPage: (page: number) => void
   addActivity: (activity: Omit<Activity, 'id' | 'org_id' | 'created_at'>) => void
+  addContacts: (contacts: Omit<Contact, 'id' | 'org_id' | 'created_at' | 'updated_at'>[]) => void
+  updateContact: (id: string, updates: Partial<Contact>) => void
 }
 
 // --- Helpers ---
@@ -144,6 +146,26 @@ const useContactStore = create<ContactState>((set) => ({
         },
         ...state.activities,
       ],
+    })),
+
+  addContacts: (newContacts) =>
+    set((state) => {
+      const now = new Date().toISOString()
+      const created = newContacts.map((c, i) => ({
+        ...c,
+        id: `contact_import_${Date.now()}_${i}`,
+        org_id: ORG_ID,
+        created_at: now,
+        updated_at: now,
+      }))
+      return { contacts: [...created, ...state.contacts] }
+    }),
+
+  updateContact: (id, updates) =>
+    set((state) => ({
+      contacts: state.contacts.map((c) =>
+        c.id === id ? { ...c, ...updates, updated_at: new Date().toISOString() } : c,
+      ),
     })),
 }))
 

@@ -1,9 +1,11 @@
-import { Search, Plus, ChevronDown } from 'lucide-react'
+import { useState } from 'react'
+import { Search, Plus, ChevronDown, Upload } from 'lucide-react'
 import useContactStore, { useFilteredContacts } from '@/stores/contactStore'
 import type { Contact, LeadSource, ContactStatus } from '@/types/contact'
 import { LEAD_SOURCE_LABELS, CONTACT_STATUS_LABELS } from '@/types/contact'
 import DataTable, { type Column } from '@/components/shared/DataTable'
 import ContactDetail from './components/ContactDetail'
+import CSVImportModal from './components/CSVImportModal'
 
 const sourceOptions: { value: LeadSource | 'all'; label: string }[] = [
   { value: 'all', label: 'All Sources' },
@@ -99,6 +101,7 @@ const columns: Column<Contact>[] = [
 ]
 
 export default function ContactList() {
+  const [showImport, setShowImport] = useState(false)
   const selectedContactId = useContactStore((s) => s.selectedContactId)
   const allContacts = useContactStore((s) => s.contacts)
   const search = useContactStore((s) => s.search)
@@ -177,6 +180,15 @@ export default function ContactList() {
           <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         </div>
 
+        {/* Import button */}
+        <button
+          onClick={() => setShowImport(true)}
+          className="flex items-center gap-2 rounded-lg border border-border bg-white px-4 py-2 text-sm font-medium text-body shadow-card transition-colors hover:bg-page"
+        >
+          <Upload className="h-4 w-4" />
+          Import
+        </button>
+
         {/* Add contact button */}
         <button className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white shadow-card transition-colors hover:bg-primary-hover">
           <Plus className="h-4 w-4" />
@@ -204,6 +216,8 @@ export default function ContactList() {
         onPageChange={setPage}
         emptyMessage="No contacts match your search"
       />
+
+      {showImport && <CSVImportModal onClose={() => setShowImport(false)} />}
     </div>
   )
 }
