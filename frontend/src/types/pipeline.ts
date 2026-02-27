@@ -15,6 +15,7 @@ export interface PipelineStage {
   position: number
   is_won: boolean
   is_lost: boolean
+  is_active: boolean
   stale_days: number
   created_at: string
 }

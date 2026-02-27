@@ -12,7 +12,14 @@ interface PipelineState {
 
   selectDeal: (dealId: string | null) => void
   moveDeal: (dealId: string, toStageId: string) => void
+  renamePipeline: (pipelineId: string, name: string) => void
+  addStage: (pipelineId: string, stage: Omit<PipelineStage, 'id' | 'pipeline_id' | 'position' | 'created_at'>) => void
+  updateStage: (stageId: string, updates: Partial<Pick<PipelineStage, 'name' | 'color' | 'stale_days' | 'is_active'>>) => void
+  deleteStage: (stageId: string, reassignToStageId?: string) => void
+  reorderStages: (pipelineId: string, orderedIds: string[]) => void
 }
+
+const HEX_COLOR_REGEX = /^#[0-9a-fA-F]{6}$/
 
 // --- Mock Data ---
 
@@ -31,15 +38,15 @@ const mockPipelines: Pipeline[] = [
 ]
 
 const mockStages: PipelineStage[] = [
-  { id: 'stage_01', pipeline_id: PIPELINE_ID, name: 'New Lead', color: '#6C63FF', position: 0, is_won: false, is_lost: false, stale_days: 3, created_at: '2025-01-15T08:00:00Z' },
-  { id: 'stage_02', pipeline_id: PIPELINE_ID, name: 'Contacted', color: '#3B82F6', position: 1, is_won: false, is_lost: false, stale_days: 5, created_at: '2025-01-15T08:00:00Z' },
-  { id: 'stage_03', pipeline_id: PIPELINE_ID, name: 'Consultation Scheduled', color: '#8B5CF6', position: 2, is_won: false, is_lost: false, stale_days: 7, created_at: '2025-01-15T08:00:00Z' },
-  { id: 'stage_04', pipeline_id: PIPELINE_ID, name: 'Quote Sent', color: '#F59E0B', position: 3, is_won: false, is_lost: false, stale_days: 7, created_at: '2025-01-15T08:00:00Z' },
-  { id: 'stage_05', pipeline_id: PIPELINE_ID, name: 'Negotiation', color: '#F97316', position: 4, is_won: false, is_lost: false, stale_days: 10, created_at: '2025-01-15T08:00:00Z' },
-  { id: 'stage_06', pipeline_id: PIPELINE_ID, name: 'Install Scheduled', color: '#22C55E', position: 5, is_won: false, is_lost: false, stale_days: 14, created_at: '2025-01-15T08:00:00Z' },
-  { id: 'stage_07', pipeline_id: PIPELINE_ID, name: 'Installed', color: '#14B8A6', position: 6, is_won: false, is_lost: false, stale_days: 7, created_at: '2025-01-15T08:00:00Z' },
-  { id: 'stage_08', pipeline_id: PIPELINE_ID, name: 'Contract Signed', color: '#10B981', position: 7, is_won: true, is_lost: false, stale_days: 30, created_at: '2025-01-15T08:00:00Z' },
-  { id: 'stage_09', pipeline_id: PIPELINE_ID, name: 'Lost', color: '#EF4444', position: 8, is_won: false, is_lost: true, stale_days: 30, created_at: '2025-01-15T08:00:00Z' },
+  { id: 'stage_01', pipeline_id: PIPELINE_ID, name: 'New Lead', color: '#6C63FF', position: 0, is_won: false, is_lost: false, is_active: true, stale_days: 3, created_at: '2025-01-15T08:00:00Z' },
+  { id: 'stage_02', pipeline_id: PIPELINE_ID, name: 'Contacted', color: '#3B82F6', position: 1, is_won: false, is_lost: false, is_active: true, stale_days: 5, created_at: '2025-01-15T08:00:00Z' },
+  { id: 'stage_03', pipeline_id: PIPELINE_ID, name: 'Consultation Scheduled', color: '#8B5CF6', position: 2, is_won: false, is_lost: false, is_active: true, stale_days: 7, created_at: '2025-01-15T08:00:00Z' },
+  { id: 'stage_04', pipeline_id: PIPELINE_ID, name: 'Quote Sent', color: '#F59E0B', position: 3, is_won: false, is_lost: false, is_active: true, stale_days: 7, created_at: '2025-01-15T08:00:00Z' },
+  { id: 'stage_05', pipeline_id: PIPELINE_ID, name: 'Negotiation', color: '#F97316', position: 4, is_won: false, is_lost: false, is_active: true, stale_days: 10, created_at: '2025-01-15T08:00:00Z' },
+  { id: 'stage_06', pipeline_id: PIPELINE_ID, name: 'Install Scheduled', color: '#22C55E', position: 5, is_won: false, is_lost: false, is_active: true, stale_days: 14, created_at: '2025-01-15T08:00:00Z' },
+  { id: 'stage_07', pipeline_id: PIPELINE_ID, name: 'Installed', color: '#14B8A6', position: 6, is_won: false, is_lost: false, is_active: true, stale_days: 7, created_at: '2025-01-15T08:00:00Z' },
+  { id: 'stage_08', pipeline_id: PIPELINE_ID, name: 'Contract Signed', color: '#10B981', position: 7, is_won: true, is_lost: false, is_active: true, stale_days: 30, created_at: '2025-01-15T08:00:00Z' },
+  { id: 'stage_09', pipeline_id: PIPELINE_ID, name: 'Lost', color: '#EF4444', position: 8, is_won: false, is_lost: true, is_active: true, stale_days: 30, created_at: '2025-01-15T08:00:00Z' },
 ]
 
 const mockContacts: Contact[] = [
@@ -54,8 +61,6 @@ const mockContacts: Contact[] = [
   { id: 'contact_09', org_id: ORG_ID, first_name: 'Andrew', last_name: 'Brown', email: 'andrew.b@email.com', phone: '(555) 012-3456', company: 'Brown Construction', address: '2100 Elm Boulevard', city: 'Nashville', state: 'TN', zip: '37201', created_at: '2025-02-18T07:30:00Z' },
   { id: 'contact_10', org_id: ORG_ID, first_name: 'Lisa', last_name: 'Anderson', email: 'lisa.a@email.com', phone: '(555) 123-4567', company: null, address: '33 Spruce Court', city: 'Charlotte', state: 'NC', zip: '28201', created_at: '2025-02-20T15:00:00Z' },
 ]
-
-const now = new Date().toISOString()
 
 // Helper: date N days ago
 function daysAgo(n: number): string {
@@ -121,18 +126,24 @@ const usePipelineStore = create<PipelineState>((set) => ({
       const deal = state.deals.find((d) => d.id === dealId)
       if (!deal || deal.stage_id === toStageId) return state
 
+      // Validate target stage belongs to same pipeline
+      const targetStage = state.stages.find((s) => s.id === toStageId && s.pipeline_id === deal.pipeline_id)
+      if (!targetStage) return state
+
+      const movedAt = new Date().toISOString()
+
       const updatedDeals = state.deals.map((d) =>
         d.id === dealId
-          ? { ...d, stage_id: toStageId, updated_at: now }
+          ? { ...d, stage_id: toStageId, updated_at: movedAt }
           : d,
       )
 
       const newHistoryEntry: StageHistory = {
-        id: `sh_${dealId}_${Date.now()}`,
+        id: `sh_${dealId}_${crypto.randomUUID()}`,
         deal_id: dealId,
         from_stage_id: deal.stage_id,
         to_stage_id: toStageId,
-        moved_at: new Date().toISOString(),
+        moved_at: movedAt,
         moved_by: deal.assigned_to,
       }
 
@@ -141,6 +152,75 @@ const usePipelineStore = create<PipelineState>((set) => ({
         stageHistory: [...state.stageHistory, newHistoryEntry],
       }
     }),
+
+  renamePipeline: (pipelineId, name) =>
+    set((state) => ({
+      pipelines: state.pipelines.map((p) =>
+        p.id === pipelineId
+          ? { ...p, name, updated_at: new Date().toISOString() }
+          : p,
+      ),
+    })),
+
+  addStage: (pipelineId, stageData) =>
+    set((state) => {
+      const pipelineStages = state.stages.filter((s) => s.pipeline_id === pipelineId)
+      const maxPosition = pipelineStages.reduce((max, s) => Math.max(max, s.position), -1)
+
+      const newStage: PipelineStage = {
+        ...stageData,
+        id: `stage_${crypto.randomUUID()}`,
+        pipeline_id: pipelineId,
+        position: maxPosition + 1,
+        created_at: new Date().toISOString(),
+      }
+
+      return { stages: [...state.stages, newStage] }
+    }),
+
+  updateStage: (stageId, updates) =>
+    set((state) => {
+      // Validate: reject empty names
+      if (updates.name !== undefined && updates.name.trim() === '') return state
+      // Validate: reject invalid hex colors
+      if (updates.color !== undefined && !HEX_COLOR_REGEX.test(updates.color)) return state
+      // Validate: clamp stale_days to 1-365
+      const sanitized = { ...updates }
+      if (sanitized.stale_days !== undefined) {
+        sanitized.stale_days = Math.min(365, Math.max(1, sanitized.stale_days))
+      }
+      return {
+        stages: state.stages.map((s) =>
+          s.id === stageId ? { ...s, ...sanitized } : s,
+        ),
+      }
+    }),
+
+  deleteStage: (stageId, reassignToStageId?) =>
+    set((state) => {
+      const updatedStages = state.stages.filter((s) => s.id !== stageId)
+
+      // Reassign orphaned deals if a target stage is provided
+      let updatedDeals = state.deals
+      if (reassignToStageId) {
+        updatedDeals = state.deals.map((d) =>
+          d.stage_id === stageId
+            ? { ...d, stage_id: reassignToStageId, updated_at: new Date().toISOString() }
+            : d,
+        )
+      }
+
+      return { stages: updatedStages, deals: updatedDeals }
+    }),
+
+  reorderStages: (pipelineId, orderedIds) =>
+    set((state) => ({
+      stages: state.stages.map((s) => {
+        if (s.pipeline_id !== pipelineId) return s
+        const newPosition = orderedIds.indexOf(s.id)
+        return newPosition >= 0 ? { ...s, position: newPosition } : s
+      }),
+    })),
 }))
 
 export default usePipelineStore

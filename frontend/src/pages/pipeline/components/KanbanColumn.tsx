@@ -1,7 +1,8 @@
 import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
+import { Plus } from 'lucide-react'
 import type { DealWithContact, PipelineStage } from '@/types/pipeline'
-import DealCard from './DealCard'
+import KanbanCard from './KanbanCard'
 
 const currencyFormat = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -24,47 +25,58 @@ export default function KanbanColumn({ stage, deals, onDealClick }: KanbanColumn
 
   return (
     <div
-      className={`flex min-w-[280px] w-[280px] flex-shrink-0 flex-col ${
+      className={`min-w-[280px] w-[280px] flex-shrink-0 flex flex-col rounded-xl border border-border bg-white shadow-card ${
         isDimmed ? 'opacity-75' : ''
       }`}
     >
-      {/* Column header */}
-      <div className="mb-3 flex items-center gap-2">
-        <span
-          className="h-2.5 w-2.5 rounded-full flex-shrink-0"
-          style={{ backgroundColor: stage.color }}
-        />
-        <h3 className="text-sm font-semibold text-heading truncate">
+      {/* Colored header bar */}
+      <div
+        className="rounded-t-lg px-3 py-2.5 flex items-center gap-2"
+        style={{ backgroundColor: stage.color }}
+      >
+        <h3 className="text-sm font-semibold text-white truncate">
           {stage.name}
         </h3>
-        <span className="ml-auto flex-shrink-0 rounded-full bg-page px-2 py-0.5 text-xs font-medium text-muted-foreground">
+        <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-medium text-white flex-shrink-0">
           {deals.length}
+        </span>
+        <span className="ml-auto text-xs font-medium text-white/90 flex-shrink-0">
+          {currencyFormat.format(totalValue)}
         </span>
       </div>
 
-      {/* Total value */}
-      <p className="mb-3 text-xs font-medium text-muted-foreground">
-        {currencyFormat.format(totalValue)}
-      </p>
-
-      {/* Droppable card list */}
+      {/* Card area */}
       <SortableContext items={deals.map((d) => d.id)} strategy={verticalListSortingStrategy}>
         <div
           ref={setNodeRef}
-          className={`flex flex-1 flex-col gap-2 rounded-lg p-1.5 min-h-[100px] transition-colors ${
-            isOver ? 'bg-primary/5 ring-1 ring-primary/20' : ''
+          className={`overflow-y-auto flex-1 space-y-2 p-2 min-h-[80px] transition-colors ${
+            isOver ? 'bg-primary/5 ring-1 ring-inset ring-primary/20' : ''
           }`}
         >
-          {deals.map((deal) => (
-            <DealCard
-              key={deal.id}
-              deal={deal}
-              stage={stage}
-              onClick={() => onDealClick(deal.id)}
-            />
-          ))}
+          {deals.length > 0 ? (
+            deals.map((deal) => (
+              <KanbanCard
+                key={deal.id}
+                deal={deal}
+                stage={stage}
+                onClick={() => onDealClick(deal.id)}
+              />
+            ))
+          ) : (
+            <p className="text-sm italic text-muted-foreground py-4 text-center">
+              No deals
+            </p>
+          )}
         </div>
       </SortableContext>
+
+      {/* Footer */}
+      <div className="border-t border-border px-3 py-2">
+        <button className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-heading transition-colors w-full">
+          <Plus className="h-4 w-4" />
+          Add Deal
+        </button>
+      </div>
     </div>
   )
 }
