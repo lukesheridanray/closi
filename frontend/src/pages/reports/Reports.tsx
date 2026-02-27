@@ -7,6 +7,7 @@ import {
 } from 'recharts'
 import useContractStore, { useMRR } from '@/stores/contractStore'
 import useContactStore from '@/stores/contactStore'
+import { useOverdueInvoices, useOverdueTotal } from '@/stores/invoiceStore'
 import KpiCard from '@/pages/dashboard/components/KpiCard'
 
 const currencyFormat = new Intl.NumberFormat('en-US', {
@@ -28,6 +29,8 @@ export default function Reports() {
   const payments = useContractStore((s) => s.payments)
   const contacts = useContactStore((s) => s.contacts)
   const mrr = useMRR()
+  const overdueInvoices = useOverdueInvoices()
+  const overdueInvoiceTotal = useOverdueTotal()
 
   const stats = useMemo(() => {
     const now = new Date()
@@ -164,6 +167,21 @@ export default function Reports() {
           icon={<Users className="h-4 w-4" />}
         />
       </div>
+
+      {/* Overdue Invoices Alert */}
+      {overdueInvoices.length > 0 && (
+        <div className="flex items-center gap-2 rounded-xl border border-danger/30 bg-danger/5 p-4">
+          <AlertTriangle className="h-5 w-5 text-danger" />
+          <div>
+            <p className="text-sm font-semibold text-danger">
+              {overdueInvoices.length} Overdue Invoice{overdueInvoices.length > 1 ? 's' : ''}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Total overdue: {currencyFormatShort.format(overdueInvoiceTotal)}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

@@ -3,6 +3,7 @@ import { DollarSign, TrendingUp, Trophy, Target, Users, BarChart3, RefreshCw, Al
 import usePipelineStore from '@/stores/pipelineStore'
 import useContractStore, { useMRR } from '@/stores/contractStore'
 import useContactStore from '@/stores/contactStore'
+import { useOverdueInvoices, useOverdueTotal } from '@/stores/invoiceStore'
 import KpiCard from './components/KpiCard'
 import PipelineStageChart from './components/PipelineStageChart'
 import LeadSourceChart from './components/LeadSourceChart'
@@ -25,6 +26,8 @@ export default function Dashboard() {
   const contracts = useContractStore((s) => s.contracts)
   const payments = useContractStore((s) => s.payments)
   const mrr = useMRR()
+  const overdueInvoices = useOverdueInvoices()
+  const overdueInvoiceTotal = useOverdueTotal()
 
   // KPI calculations
   const kpis = useMemo(() => {
@@ -200,6 +203,15 @@ export default function Dashboard() {
         <TasksDueToday />
         <StaleDealsList />
         <div className="space-y-4">
+          {overdueInvoices.length > 0 && (
+            <div className="flex items-center gap-2 rounded-xl border border-danger/30 bg-danger/5 p-4 shadow-card">
+              <AlertTriangleIcon className="h-5 w-5 text-danger" />
+              <div>
+                <p className="text-sm font-semibold text-danger">{overdueInvoices.length} Overdue Invoice{overdueInvoices.length > 1 ? 's' : ''}</p>
+                <p className="text-xs text-muted-foreground">Total: {currencyFormat.format(overdueInvoiceTotal)}</p>
+              </div>
+            </div>
+          )}
           {kpis.failedPayments > 0 && (
             <div className="flex items-center gap-2 rounded-xl border border-danger/30 bg-danger/5 p-4 shadow-card">
               <AlertTriangleIcon className="h-5 w-5 text-danger" />

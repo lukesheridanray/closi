@@ -11,6 +11,8 @@ import useContactStore from '@/stores/contactStore'
 import usePipelineStore from '@/stores/pipelineStore'
 import useTaskStore, { useTasksForContact } from '@/stores/taskStore'
 import { useContractsForContact, usePaymentsForContact } from '@/stores/contractStore'
+import { useInvoicesForContact } from '@/stores/invoiceStore'
+import { INVOICE_STATUS_LABELS, INVOICE_STATUS_COLORS } from '@/types/invoice'
 import ActivityTimeline from './ActivityTimeline'
 import QuickActions from './QuickActions'
 
@@ -42,6 +44,7 @@ export default function ContactDetail({ contact, onBack }: ContactDetailProps) {
   const completeTask = useTaskStore((s) => s.completeTask)
   const contactContracts = useContractsForContact(contact.id)
   const contactPayments = usePaymentsForContact(contact.id)
+  const contactInvoices = useInvoicesForContact(contact.id)
 
   const contactActivities = activities.filter((a) => a.contact_id === contact.id)
   const contactDeals = deals.filter((d) => d.contact_id === contact.id)
@@ -272,6 +275,34 @@ export default function ContactDetail({ contact, onBack }: ContactDetailProps) {
               </div>
             )}
           </div>
+
+          {/* Invoices card */}
+          {contactInvoices.length > 0 && (
+            <div className="rounded-xl border border-border bg-white p-5 shadow-card">
+              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Invoices
+              </h3>
+              <div className="space-y-2">
+                {contactInvoices
+                  .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                  .slice(0, 5)
+                  .map((inv) => (
+                    <div
+                      key={inv.id}
+                      className="flex items-center justify-between rounded-lg border border-border p-2.5"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium text-heading truncate">{inv.invoice_number}</p>
+                        <span className={`mt-0.5 inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${INVOICE_STATUS_COLORS[inv.status]}`}>
+                          {INVOICE_STATUS_LABELS[inv.status]}
+                        </span>
+                      </div>
+                      <span className="text-sm font-bold text-primary flex-shrink-0">${inv.total.toFixed(2)}</span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
 
           {/* Notes card */}
           {contact.notes && (
