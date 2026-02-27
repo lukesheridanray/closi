@@ -1,5 +1,5 @@
 import { format, isPast, isToday } from 'date-fns'
-import { ArrowLeft, Mail, Phone, MapPin, Edit, CheckCircle2, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, Mail, Phone, MapPin, Edit, CheckCircle2, AlertTriangle, CreditCard } from 'lucide-react'
 import type { Contact } from '@/types/contact'
 import {
   LEAD_SOURCE_LABELS,
@@ -298,6 +298,42 @@ export default function ContactDetail({ contact, onBack }: ContactDetailProps) {
                         </span>
                       </div>
                       <span className="text-sm font-bold text-primary flex-shrink-0">${inv.total.toFixed(2)}</span>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          )}
+
+          {/* Payment History card */}
+          {contactPayments.length > 0 && (
+            <div className="rounded-xl border border-border bg-white p-5 shadow-card">
+              <h3 className="mb-3 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <CreditCard className="h-3.5 w-3.5" />
+                Payment History
+              </h3>
+              <div className="space-y-2">
+                {contactPayments
+                  .sort((a, b) => new Date(b.paid_at).getTime() - new Date(a.paid_at).getTime())
+                  .slice(0, 5)
+                  .map((payment) => (
+                    <div key={payment.id} className="flex items-center justify-between rounded-lg border border-border p-2.5">
+                      <div>
+                        <p className="text-xs font-medium text-heading">
+                          {payment.type === 'equipment' ? 'Equipment' : 'Monitoring'}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground">
+                          {format(new Date(payment.paid_at), 'MMM d, yyyy')}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs font-medium text-heading">${payment.amount.toFixed(2)}</p>
+                        <p className={`text-[10px] font-medium ${
+                          payment.status === 'succeeded' ? 'text-success' :
+                          payment.status === 'failed' ? 'text-danger' : 'text-muted-foreground'
+                        }`}>
+                          {payment.status === 'succeeded' ? 'Paid' : payment.status === 'failed' ? 'Failed' : payment.status}
+                        </p>
+                      </div>
                     </div>
                   ))}
               </div>

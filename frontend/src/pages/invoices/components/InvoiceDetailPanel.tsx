@@ -4,6 +4,8 @@ import type { Invoice } from '@/types/invoice'
 import { INVOICE_TYPE_LABELS, INVOICE_STATUS_LABELS, INVOICE_STATUS_COLORS } from '@/types/invoice'
 import useInvoiceStore from '@/stores/invoiceStore'
 import useContactStore from '@/stores/contactStore'
+import { usePaymentsForContract } from '@/stores/contractStore'
+import { PAYMENT_STATUS_LABELS } from '@/types/contract'
 
 const currencyFormat = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -22,9 +24,23 @@ export default function InvoiceDetailPanel({ invoice }: InvoiceDetailPanelProps)
   const voidInvoice = useInvoiceStore((s) => s.voidInvoice)
   const contacts = useContactStore((s) => s.contacts)
 
+  const contractPayments = usePaymentsForContract(invoice.contract_id)
+
   const contact = contacts.find((c) => c.id === invoice.contact_id)
   const isOverdue = invoice.status === 'overdue'
   const daysOverdue = isOverdue ? differenceInDays(new Date(), new Date(invoice.due_date)) : 0
+
+  // Match payments to this invoice by date proximity and amount
+  const invoicePayments = contractPayments.filter((p) => {
+    if (invoice.type === 'one_time' && p.type === 'equipment') return true
+    if (invoice.type === 'recurring' && p.type === 'monitoring') {
+      const paymentDate = new Date(p.paid_at)
+      const dueDate = new Date(invoice.due_date)
+      const diff = Math.abs(differenceInDays(paymentDate, dueDate))
+      return diff <= 35
+    }
+    return false
+  })
 
   return (
     <div className="space-y-6">
@@ -164,6 +180,38 @@ export default function InvoiceDetailPanel({ invoice }: InvoiceDetailPanelProps)
           <span className="text-lg font-bold text-primary">{currencyFormat.format(invoice.total)}</span>
         </div>
       </div>
+
+      {/* Payment History */}
+      {invoicePayments.length > 0 && (
+        <div>
+          <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Payments Applied
+          </h4>
+          <div className="space-y-2">
+            {invoicePayments.map((payment) => (
+              <div key={payment.id} className="flex items-center justify-between rounded-lg border border-border p-2.5">
+                <div>
+                  <p className="text-xs font-medium text-heading">
+                    {payment.type === 'equipment' ? 'Equipment Charge' : 'Monthly Monitoring'}
+                  </p>
+                  <p className="text-[10px] text-muted-foreground">
+                    {format(new Date(payment.paid_at), 'MMM d, yyyy')}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-medium text-heading">{currencyFormat.format(payment.amount)}</p>
+                  <p className={`text-[10px] font-medium ${
+                    payment.status === 'succeeded' ? 'text-success' :
+                    payment.status === 'failed' ? 'text-danger' : 'text-muted-foreground'
+                  }`}>
+                    {PAYMENT_STATUS_LABELS[payment.status]}
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Notes */}
       {invoice.notes && (
