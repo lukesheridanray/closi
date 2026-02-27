@@ -28,11 +28,13 @@ app = FastAPI(
     openapi_url=f"{settings.api_prefix}/openapi.json",
 )
 
-# CORS
+# CORS - when wildcard is used, disable credentials (browser requirement)
+_origins = settings.cors_origins_list
+_credentials = "*" not in _origins
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.cors_origins_list,
-    allow_credentials=True,
+    allow_origins=_origins,
+    allow_credentials=_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
 )
