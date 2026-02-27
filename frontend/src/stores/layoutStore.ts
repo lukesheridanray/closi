@@ -1,21 +1,15 @@
 import { create } from 'zustand'
 
 interface LayoutState {
-  sidebarCollapsed: boolean
-  mobileDrawerOpen: boolean
-  toggleSidebar: () => void
-  setMobileDrawerOpen: (open: boolean) => void
+  sidebarPanelOpen: boolean
+  toggleSidebarPanel: () => void
 }
 
 const useLayoutStore = create<LayoutState>((set) => ({
-  sidebarCollapsed: false,
-  mobileDrawerOpen: false,
+  sidebarPanelOpen: true,
 
-  toggleSidebar: () =>
-    set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
-
-  setMobileDrawerOpen: (open) =>
-    set({ mobileDrawerOpen: open }),
+  toggleSidebarPanel: () =>
+    set((state) => ({ sidebarPanelOpen: !state.sidebarPanelOpen })),
 }))
 
 export default useLayoutStore

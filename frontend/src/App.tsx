@@ -4,15 +4,22 @@ import SignIn from '@/pages/auth/SignIn'
 import SignUp from '@/pages/auth/SignUp'
 import CompanyDetails from '@/pages/auth/CompanyDetails'
 import ProtectedRoute from '@/components/layout/ProtectedRoute'
-import AppLayout from '@/components/layout/AppLayout'
+import MainLayout from '@/components/layout/MainLayout'
 import Dashboard from '@/pages/dashboard/Dashboard'
-import Pipeline from '@/pages/pipeline/Pipeline'
-import Contacts from '@/pages/contacts/Contacts'
-import Tasks from '@/pages/tasks/Tasks'
-import Quotes from '@/pages/quotes/Quotes'
-import Contracts from '@/pages/contracts/Contracts'
-import Invoices from '@/pages/invoices/Invoices'
-import Settings from '@/pages/settings/Settings'
+import PipelineBoard from '@/pages/pipeline/PipelineBoard'
+import ContactList from '@/pages/contacts/ContactList'
+import TaskList from '@/pages/tasks/TaskList'
+import Calendar from '@/pages/calendar/Calendar'
+import QuoteList from '@/pages/quotes/QuoteList'
+import ContractList from '@/pages/contracts/ContractList'
+import InvoiceList from '@/pages/invoices/InvoiceList'
+import InventoryDashboard from '@/pages/inventory/InventoryDashboard'
+import Reports from '@/pages/reports/Reports'
+import OrgSettings from '@/pages/settings/OrgSettings'
+import PipelineSettings from '@/pages/settings/PipelineSettings'
+import IntegrationSettings from '@/pages/settings/IntegrationSettings'
+import PaymentSettings from '@/pages/settings/PaymentSettings'
+import TeamSettings from '@/pages/settings/TeamSettings'
 
 function App() {
   return (
@@ -22,15 +29,24 @@ function App() {
       <Route path="/company-details" element={<CompanyDetails />} />
 
       <Route element={<ProtectedRoute />}>
-        <Route element={<AppLayout />}>
+        <Route element={<MainLayout />}>
           <Route index element={<Dashboard />} />
-          <Route path="pipeline" element={<Pipeline />} />
-          <Route path="contacts" element={<Contacts />} />
-          <Route path="tasks" element={<Tasks />} />
-          <Route path="quotes" element={<Quotes />} />
-          <Route path="contracts" element={<Contracts />} />
-          <Route path="invoices" element={<Invoices />} />
-          <Route path="settings" element={<Settings />} />
+          <Route path="pipeline" element={<PipelineBoard />} />
+          <Route path="contacts" element={<ContactList />} />
+          <Route path="tasks" element={<TaskList />} />
+          <Route path="calendar" element={<Calendar />} />
+          <Route path="quotes" element={<QuoteList />} />
+          <Route path="contracts" element={<ContractList />} />
+          <Route path="invoices" element={<InvoiceList />} />
+          <Route path="inventory" element={<InventoryDashboard />} />
+          <Route path="reports" element={<Reports />} />
+          <Route path="settings">
+            <Route index element={<OrgSettings />} />
+            <Route path="pipeline" element={<PipelineSettings />} />
+            <Route path="integrations" element={<IntegrationSettings />} />
+            <Route path="payments" element={<PaymentSettings />} />
+            <Route path="team" element={<TeamSettings />} />
+          </Route>
         </Route>
       </Route>
     </Routes>
