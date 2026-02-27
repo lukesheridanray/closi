@@ -64,6 +64,7 @@ export type ActivityType =
   | 'meeting'
   | 'site_visit'
   | 'task_created'
+  | 'task_completed'
   | 'deal_created'
   | 'stage_change'
   | 'quote_sent'
@@ -102,6 +103,7 @@ export const ACTIVITY_TYPE_LABELS: Record<ActivityType, string> = {
   meeting: 'Meeting',
   site_visit: 'Site Visit',
   task_created: 'Task Created',
+  task_completed: 'Task Completed',
   deal_created: 'Deal Created',
   stage_change: 'Stage Change',
   quote_sent: 'Quote Sent',

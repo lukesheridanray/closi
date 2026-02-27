@@ -1,14 +1,15 @@
-import { format } from 'date-fns'
-import { ArrowLeft, Mail, Phone, MapPin, Edit } from 'lucide-react'
+import { format, isPast, isToday } from 'date-fns'
+import { ArrowLeft, Mail, Phone, MapPin, Edit, CheckCircle2, AlertTriangle } from 'lucide-react'
 import type { Contact } from '@/types/contact'
-import type { Activity } from '@/types/contact'
 import {
   LEAD_SOURCE_LABELS,
   CONTACT_STATUS_LABELS,
   PROPERTY_TYPE_LABELS,
 } from '@/types/contact'
+import { TASK_TYPE_LABELS, TASK_PRIORITY_LABELS } from '@/types/task'
 import useContactStore from '@/stores/contactStore'
 import usePipelineStore from '@/stores/pipelineStore'
+import useTaskStore, { useTasksForContact } from '@/stores/taskStore'
 import ActivityTimeline from './ActivityTimeline'
 import QuickActions from './QuickActions'
 
@@ -29,6 +30,8 @@ export default function ContactDetail({ contact, onBack }: ContactDetailProps) {
   const activities = useContactStore((s) => s.activities)
   const deals = usePipelineStore((s) => s.deals)
   const stages = usePipelineStore((s) => s.stages)
+  const contactTasks = useTasksForContact(contact.id)
+  const completeTask = useTaskStore((s) => s.completeTask)
 
   const contactActivities = activities.filter((a) => a.contact_id === contact.id)
   const contactDeals = deals.filter((d) => d.contact_id === contact.id)
@@ -157,6 +160,62 @@ export default function ContactDetail({ contact, onBack }: ContactDetailProps) {
                     </div>
                   )
                 })}
+              </div>
+            )}
+          </div>
+
+          {/* Tasks card */}
+          <div className="rounded-xl border border-border bg-white p-5 shadow-card">
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Tasks
+            </h3>
+            {contactTasks.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No tasks</p>
+            ) : (
+              <div className="space-y-2">
+                {contactTasks
+                  .filter((t) => t.status !== 'cancelled')
+                  .sort((a, b) => a.due_date.localeCompare(b.due_date))
+                  .map((task) => {
+                    const dueDate = new Date(task.due_date)
+                    const isOverdue = task.status !== 'completed' && isPast(dueDate) && !isToday(dueDate)
+                    return (
+                      <div
+                        key={task.id}
+                        className="flex items-center gap-2 rounded-lg border border-border p-2.5"
+                      >
+                        {(task.status === 'pending' || task.status === 'in_progress') && (
+                          <button
+                            onClick={() => completeTask(task.id)}
+                            className="flex-shrink-0 rounded-full p-0.5 text-muted-foreground transition-colors hover:text-success"
+                          >
+                            <CheckCircle2 className="h-4 w-4" />
+                          </button>
+                        )}
+                        {task.status === 'completed' && (
+                          <CheckCircle2 className="h-4 w-4 flex-shrink-0 text-success" />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-xs font-medium truncate ${task.status === 'completed' ? 'text-muted-foreground line-through' : 'text-heading'}`}>
+                            {task.title}
+                          </p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-[10px] text-muted-foreground">{TASK_TYPE_LABELS[task.type]}</span>
+                            <span className="text-[10px] text-muted-foreground">{TASK_PRIORITY_LABELS[task.priority]}</span>
+                            {isOverdue && (
+                              <span className="inline-flex items-center gap-0.5 text-[10px] text-danger">
+                                <AlertTriangle className="h-2.5 w-2.5" />
+                                Overdue
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <span className={`text-[10px] flex-shrink-0 ${isOverdue ? 'text-danger' : 'text-muted-foreground'}`}>
+                          {format(dueDate, 'MMM d')}
+                        </span>
+                      </div>
+                    )
+                  })}
               </div>
             )}
           </div>

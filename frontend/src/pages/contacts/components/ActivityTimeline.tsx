@@ -6,6 +6,7 @@ import {
   Users,
   MapPin,
   CheckSquare,
+  CircleCheckBig,
   TrendingUp,
   ArrowRightLeft,
   Send,
@@ -13,15 +14,16 @@ import {
 import type { Activity, ActivityType } from '@/types/contact'
 
 const typeConfig: Record<ActivityType, { icon: typeof FileText; color: string }> = {
-  note:         { icon: FileText,      color: 'bg-muted text-muted-foreground' },
-  call:         { icon: Phone,         color: 'bg-info/10 text-info' },
-  email:        { icon: Mail,          color: 'bg-primary/10 text-primary' },
-  meeting:      { icon: Users,         color: 'bg-purple-100 text-purple-600' },
-  site_visit:   { icon: MapPin,        color: 'bg-success/10 text-success' },
-  task_created: { icon: CheckSquare,   color: 'bg-warning/10 text-warning' },
-  deal_created: { icon: TrendingUp,    color: 'bg-success/10 text-success' },
-  stage_change: { icon: ArrowRightLeft,color: 'bg-info/10 text-info' },
-  quote_sent:   { icon: Send,          color: 'bg-warning/10 text-warning' },
+  note:           { icon: FileText,       color: 'bg-muted text-muted-foreground' },
+  call:           { icon: Phone,          color: 'bg-info/10 text-info' },
+  email:          { icon: Mail,           color: 'bg-primary/10 text-primary' },
+  meeting:        { icon: Users,          color: 'bg-purple-100 text-purple-600' },
+  site_visit:     { icon: MapPin,         color: 'bg-success/10 text-success' },
+  task_created:   { icon: CheckSquare,    color: 'bg-warning/10 text-warning' },
+  task_completed: { icon: CircleCheckBig, color: 'bg-success/10 text-success' },
+  deal_created:   { icon: TrendingUp,     color: 'bg-success/10 text-success' },
+  stage_change:   { icon: ArrowRightLeft, color: 'bg-info/10 text-info' },
+  quote_sent:     { icon: Send,           color: 'bg-warning/10 text-warning' },
 }
 
 interface ActivityTimelineProps {
