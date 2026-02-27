@@ -2,6 +2,7 @@ import { useState, useRef, useCallback, useEffect } from 'react'
 import { X, Upload, FileText, Check, AlertTriangle, AlertCircle, ChevronLeft, ChevronRight, Download } from 'lucide-react'
 import useContactStore from '@/stores/contactStore'
 import usePipelineStore from '@/stores/pipelineStore'
+import { useEntityLabels } from '@/hooks/useEntityLabels'
 import { LEAD_SOURCE_LABELS } from '@/types/contact'
 import type { LeadSource } from '@/types/contact'
 import {
@@ -38,6 +39,7 @@ interface CSVImportModalProps {
 }
 
 export default function CSVImportModal({ onClose }: CSVImportModalProps) {
+  const { deal: dealLabel } = useEntityLabels()
   const contacts = useContactStore((s) => s.contacts)
   const addContacts = useContactStore((s) => s.addContacts)
   const updateContact = useContactStore((s) => s.updateContact)
@@ -778,7 +780,7 @@ export default function CSVImportModal({ onClose }: CSVImportModalProps) {
               onChange={(e) => setImportOptions((o) => ({ ...o, autoCreateDeals: e.target.checked }))}
               className="accent-primary h-4 w-4 rounded"
             />
-            <span className="text-sm font-medium text-heading">Auto-create deals for imported contacts</span>
+            <span className="text-sm font-medium text-heading">Auto-create {dealLabel.pluralLower} for imported contacts</span>
           </label>
           {importOptions.autoCreateDeals && (
             <div className="mt-3 grid grid-cols-2 gap-4 pl-6">
@@ -790,7 +792,7 @@ export default function CSVImportModal({ onClose }: CSVImportModalProps) {
                   className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-body outline-none focus:border-primary"
                 >
                   {stages
-                    .filter((s) => !s.is_lost)
+                    .filter((s) => !s.is_lost_stage)
                     .map((s) => (
                       <option key={s.id} value={s.id}>
                         {s.name}
@@ -799,7 +801,7 @@ export default function CSVImportModal({ onClose }: CSVImportModalProps) {
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Default Deal Value</label>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">Default {dealLabel.singular} Value</label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
                   <input

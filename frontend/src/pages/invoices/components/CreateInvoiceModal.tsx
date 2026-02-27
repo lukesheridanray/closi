@@ -3,14 +3,14 @@ import { X, Plus, Trash2 } from 'lucide-react'
 import useInvoiceStore from '@/stores/invoiceStore'
 import useContractStore from '@/stores/contractStore'
 import useContactStore from '@/stores/contactStore'
-import type { InvoiceType, InvoiceLine } from '@/types/invoice'
+import type { InvoiceLine } from '@/types/invoice'
 
 interface CreateInvoiceModalProps {
   open: boolean
   onClose: () => void
 }
 
-const emptyLine: InvoiceLine = { description: '', quantity: 1, unit_price: 0, total: 0 }
+const emptyLine: InvoiceLine = { description: '', quantity: 1, unit_price: 0, amount: 0 }
 
 export default function CreateInvoiceModal({ open, onClose }: CreateInvoiceModalProps) {
   const createInvoice = useInvoiceStore((s) => s.createInvoice)
@@ -21,7 +21,7 @@ export default function CreateInvoiceModal({ open, onClose }: CreateInvoiceModal
   const contactMap = new Map(contacts.map((c) => [c.id, c]))
 
   const [contractId, setContractId] = useState('')
-  const [type, setType] = useState<InvoiceType>('recurring')
+  const [invoiceKind, setInvoiceKind] = useState<'recurring' | 'one_time'>('recurring')
   const [lineItems, setLineItems] = useState<InvoiceLine[]>([{ ...emptyLine }])
   const [taxRate, setTaxRate] = useState(8.25)
   const [dueDate, setDueDate] = useState(() => {
@@ -39,37 +39,39 @@ export default function CreateInvoiceModal({ open, onClose }: CreateInvoiceModal
     setContractId(id)
     const contract = activeContracts.find((c) => c.id === id)
     if (contract) {
-      if (type === 'recurring') {
+      if (invoiceKind === 'recurring') {
         setLineItems([
-          { description: `Monthly Security Monitoring`, quantity: 1, unit_price: contract.monthly_amount, total: contract.monthly_amount },
+          { description: `Monthly Security Monitoring`, quantity: 1, unit_price: contract.monthly_amount, amount: contract.monthly_amount },
         ])
       } else {
+        const eqLines = contract.equipment_lines ?? []
         setLineItems(
-          contract.equipment_list.map((eq) => ({
+          eqLines.map((eq) => ({
             description: eq.name,
             quantity: eq.quantity,
             unit_price: 0,
-            total: 0,
+            amount: 0,
           })),
         )
       }
     }
   }
 
-  function handleTypeChange(newType: InvoiceType) {
-    setType(newType)
+  function handleTypeChange(newType: 'recurring' | 'one_time') {
+    setInvoiceKind(newType)
     if (selectedContract) {
       if (newType === 'recurring') {
         setLineItems([
-          { description: 'Monthly Security Monitoring', quantity: 1, unit_price: selectedContract.monthly_amount, total: selectedContract.monthly_amount },
+          { description: 'Monthly Security Monitoring', quantity: 1, unit_price: selectedContract.monthly_amount, amount: selectedContract.monthly_amount },
         ])
       } else {
+        const eqLines = selectedContract.equipment_lines ?? []
         setLineItems(
-          selectedContract.equipment_list.map((eq) => ({
+          eqLines.map((eq) => ({
             description: eq.name,
             quantity: eq.quantity,
             unit_price: 0,
-            total: 0,
+            amount: 0,
           })),
         )
       }
@@ -82,7 +84,7 @@ export default function CreateInvoiceModal({ open, onClose }: CreateInvoiceModal
         if (i !== index) return line
         const updated = { ...line, [field]: value }
         if (field === 'quantity' || field === 'unit_price') {
-          updated.total = Number(updated.quantity) * Number(updated.unit_price)
+          updated.amount = Number(updated.quantity) * Number(updated.unit_price)
         }
         return updated
       }),
@@ -97,7 +99,7 @@ export default function CreateInvoiceModal({ open, onClose }: CreateInvoiceModal
     setLineItems((prev) => prev.filter((_, i) => i !== index))
   }
 
-  const subtotal = lineItems.reduce((sum, li) => sum + li.total, 0)
+  const subtotal = lineItems.reduce((sum, li) => sum + li.amount, 0)
   const taxAmount = Math.round(subtotal * (taxRate / 100) * 100) / 100
   const total = subtotal + taxAmount
 
@@ -112,11 +114,12 @@ export default function CreateInvoiceModal({ open, onClose }: CreateInvoiceModal
     createInvoice({
       contract_id: contractId,
       contact_id: contact,
-      type,
       line_items: lineItems,
-      tax_rate: taxRate / 100,
+      subtotal,
+      tax_amount: taxAmount,
+      total,
       due_date: dueDate,
-      notes: notes || undefined,
+      memo: notes || undefined,
     })
     onClose()
   }
@@ -157,7 +160,7 @@ export default function CreateInvoiceModal({ open, onClose }: CreateInvoiceModal
               </select>
             </div>
 
-            {/* Type */}
+            {/* Type (local-only for pre-filling line items) */}
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">Invoice Type</label>
               <div className="flex gap-2">
@@ -167,7 +170,7 @@ export default function CreateInvoiceModal({ open, onClose }: CreateInvoiceModal
                     type="button"
                     onClick={() => handleTypeChange(t)}
                     className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                      type === t
+                      invoiceKind === t
                         ? 'bg-primary text-white'
                         : 'border border-border bg-white text-body hover:bg-page'
                     }`}
@@ -207,7 +210,7 @@ export default function CreateInvoiceModal({ open, onClose }: CreateInvoiceModal
                       step={0.01}
                       className="w-24 rounded-lg border-b-2 border-border bg-transparent px-2 py-2 text-right text-sm text-heading focus:border-primary focus:outline-none"
                     />
-                    <span className="w-20 text-right text-sm font-medium text-heading">${line.total.toFixed(2)}</span>
+                    <span className="w-20 text-right text-sm font-medium text-heading">${line.amount.toFixed(2)}</span>
                     {lineItems.length > 1 && (
                       <button type="button" onClick={() => removeLine(i)} className="p-1 text-muted-foreground hover:text-danger">
                         <Trash2 className="h-3.5 w-3.5" />

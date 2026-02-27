@@ -1,6 +1,7 @@
 import { differenceInDays } from 'date-fns'
 import { AlertTriangle } from 'lucide-react'
 import usePipelineStore from '@/stores/pipelineStore'
+import { useEntityLabels } from '@/hooks/useEntityLabels'
 
 const currencyFormat = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -10,6 +11,7 @@ const currencyFormat = new Intl.NumberFormat('en-US', {
 })
 
 export default function StaleDealsList() {
+  const { deal: dealLabel } = useEntityLabels()
   const deals = usePipelineStore((s) => s.deals)
   const stages = usePipelineStore((s) => s.stages)
   const contacts = usePipelineStore((s) => s.contacts)
@@ -20,7 +22,7 @@ export default function StaleDealsList() {
   const staleDeals = deals
     .map((deal) => {
       const stage = stageMap.get(deal.stage_id)
-      if (!stage || stage.is_won || stage.is_lost) return null
+      if (!stage || stage.is_won_stage || stage.is_lost_stage) return null
       const daysInStage = differenceInDays(new Date(), new Date(deal.updated_at))
       if (daysInStage <= stage.stale_days) return null
       return { deal, stage, daysInStage, contact: contactMap.get(deal.contact_id) }
@@ -32,10 +34,10 @@ export default function StaleDealsList() {
     <div className="rounded-xl border border-border bg-white p-5 shadow-card">
       <h3 className="mb-4 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
         <AlertTriangle className="h-3.5 w-3.5 text-warning" />
-        Stale Deals
+        Stale {dealLabel.plural}
       </h3>
       {staleDeals.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No stale deals</p>
+        <p className="text-sm text-muted-foreground">No stale {dealLabel.pluralLower}</p>
       ) : (
         <div className="space-y-2">
           {staleDeals.map((item) => {
@@ -57,7 +59,7 @@ export default function StaleDealsList() {
                   </div>
                 </div>
                 <div className="flex-shrink-0 text-right">
-                  <p className="text-sm font-bold text-primary">{currencyFormat.format(item.deal.value)}</p>
+                  <p className="text-sm font-bold text-primary">{currencyFormat.format(item.deal.estimated_value)}</p>
                   <p className="text-xs text-warning font-medium">{item.daysInStage}d in stage</p>
                 </div>
               </div>

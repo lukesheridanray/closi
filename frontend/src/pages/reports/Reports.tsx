@@ -1,13 +1,16 @@
-import { useMemo } from 'react'
-import { differenceInMonths, differenceInDays, format, subMonths } from 'date-fns'
+import { useState, useEffect, useMemo } from 'react'
+import { differenceInMonths, format } from 'date-fns'
 import { DollarSign, TrendingUp, TrendingDown, Users, AlertTriangle, Clock } from 'lucide-react'
 import {
   LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
   BarChart, Bar, Cell,
 } from 'recharts'
-import useContractStore, { useMRR } from '@/stores/contractStore'
+import { analyticsApi, subscriptionsApi } from '@/lib/api'
+import type { RecurringRevenueResponse } from '@/lib/api'
+import type { Subscription } from '@/types/contract'
 import useContactStore from '@/stores/contactStore'
 import { useOverdueInvoices, useOverdueTotal } from '@/stores/invoiceStore'
+import useInvoiceStore from '@/stores/invoiceStore'
 import KpiCard from '@/pages/dashboard/components/KpiCard'
 
 const currencyFormat = new Intl.NumberFormat('en-US', {
@@ -25,114 +28,120 @@ const currencyFormatShort = new Intl.NumberFormat('en-US', {
 })
 
 export default function Reports() {
-  const contracts = useContractStore((s) => s.contracts)
-  const payments = useContractStore((s) => s.payments)
   const contacts = useContactStore((s) => s.contacts)
-  const mrr = useMRR()
+  const fetchContacts = useContactStore((s) => s.fetchContacts)
+  const fetchInvoices = useInvoiceStore((s) => s.fetchInvoices)
   const overdueInvoices = useOverdueInvoices()
   const overdueInvoiceTotal = useOverdueTotal()
 
-  const stats = useMemo(() => {
-    const now = new Date()
-    const activeContracts = contracts.filter((c) => c.status === 'active')
-    const cancelledContracts = contracts.filter((c) => c.status === 'cancelled')
-    const pastDueContracts = contracts.filter((c) => c.status === 'past_due')
+  const [recurring, setRecurring] = useState<RecurringRevenueResponse | null>(null)
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
+  const [loading, setLoading] = useState(true)
 
-    // Active customer count
-    const activeCount = activeContracts.length
-    const pastDueCount = pastDueContracts.length
-    const cancelledCount = cancelledContracts.length
+  useEffect(() => {
+    fetchContacts()
+    fetchInvoices()
+  }, [fetchContacts, fetchInvoices])
 
-    // ARPA
-    const arpa = activeCount > 0 ? mrr / activeCount : 0
-
-    // Net new MRR this month (contracts started this month)
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-    const newThisMonth = activeContracts.filter(
-      (c) => new Date(c.start_date) >= monthStart,
-    )
-    const netNewMRR = newThisMonth.reduce((sum, c) => sum + c.monthly_amount, 0)
-
-    // Revenue at risk: contracts expiring in 30, 60, 90 days
-    const riskBands = [30, 60, 90].map((days) => {
-      const expiring = activeContracts.filter((c) => {
-        if (!c.end_date) return false
-        const daysToEnd = differenceInDays(new Date(c.end_date), now)
-        return daysToEnd >= 0 && daysToEnd <= days
+  useEffect(() => {
+    Promise.all([
+      analyticsApi.getRecurringRevenue(),
+      subscriptionsApi.list({ page_size: 100 }),
+    ])
+      .then(([rrData, subData]) => {
+        setRecurring(rrData)
+        setSubscriptions(subData.items)
       })
-      return {
-        label: `${days} days`,
-        count: expiring.length,
-        amount: expiring.reduce((sum, c) => sum + c.monthly_amount, 0),
-      }
-    })
+      .catch(() => {})
+      .finally(() => setLoading(false))
+  }, [])
 
-    // MRR trend (trailing 6 months, simulated with current MRR)
-    const mrrTrend = Array.from({ length: 6 }, (_, i) => {
-      const month = subMonths(now, 5 - i)
-      // Simple growth simulation: current MRR with growth factor
-      const factor = 0.85 + (i * 0.03)
-      return {
-        month: format(month, 'MMM'),
-        mrr: Math.round(mrr * factor * 100) / 100,
-      }
-    })
+  // Derived stats
+  const stats = useMemo(() => {
+    if (!recurring) return null
 
-    // MRR breakdown waterfall
-    const churnedMRR = cancelledContracts
-      .filter((c) => c.cancelled_at && new Date(c.cancelled_at) >= monthStart)
-      .reduce((sum, c) => sum + c.monthly_amount, 0)
+    const activeSubs = subscriptions.filter((s) => s.status === 'active')
+    const pastDueSubs = subscriptions.filter((s) => s.status === 'past_due')
+    const cancelledSubs = subscriptions.filter((s) => s.status === 'cancelled')
 
-    const startingMRR = mrr - netNewMRR + churnedMRR
+    // Net new MRR this month (subscriptions created this month)
+    const now = new Date()
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+    const newThisMonth = activeSubs.filter(
+      (s) => new Date(s.created_at) >= monthStart,
+    )
+    const netNewMRR = newThisMonth.reduce((sum, s) => sum + s.amount, 0)
+
+    // Churned MRR this month
+    const churnedThisMonth = cancelledSubs.filter(
+      (s) => s.cancelled_at && new Date(s.cancelled_at) >= monthStart,
+    )
+    const churnedMRR = churnedThisMonth.reduce((sum, s) => sum + s.amount, 0)
+
+    // MRR waterfall
+    const startingMRR = recurring.current_mrr - netNewMRR + churnedMRR
     const waterfall = [
       { name: 'Starting', value: startingMRR, color: '#6C63FF' },
       { name: 'New', value: netNewMRR, color: '#22C55E' },
       { name: 'Churned', value: -churnedMRR, color: '#EF4444' },
-      { name: 'Ending', value: mrr, color: '#3B82F6' },
+      { name: 'Ending', value: recurring.current_mrr, color: '#3B82F6' },
     ]
 
-    // Subscriptions table
-    const contactMap = new Map(contacts.map((c) => [c.id, c]))
-    const subscriptions = activeContracts.map((contract) => {
-      const contact = contactMap.get(contract.contact_id)
-      const tenure = differenceInMonths(now, new Date(contract.start_date))
-      const failedCount = payments.filter(
-        (p) => p.contract_id === contract.id && p.status === 'failed',
-      ).length
-      const paymentHealth: 'good' | 'warning' | 'critical' =
-        failedCount === 0 ? 'good' : failedCount === 1 ? 'warning' : 'critical'
+    // MRR trend from API (real data from subscriptions table)
+    const mrrTrend = recurring.mrr_trend.map((pt) => ({
+      month: format(new Date(pt.month + '-01'), 'MMM'),
+      mrr: pt.mrr,
+      new_mrr: pt.new_mrr,
+      churned_mrr: pt.churned_mrr,
+    }))
 
-      // Next billing: day of start_date, next month
-      const startDay = new Date(contract.start_date).getDate()
-      const nextBilling = new Date(now.getFullYear(), now.getMonth() + 1, startDay)
+    // Subscription table rows
+    const contactMap = new Map(contacts.map((c) => [c.id, c]))
+    const tableRows = activeSubs.map((sub) => {
+      const contact = contactMap.get(sub.contact_id)
+      const tenure = differenceInMonths(now, new Date(sub.created_at))
+      const paymentHealth: 'good' | 'warning' | 'critical' =
+        sub.failed_payment_count === 0
+          ? 'good'
+          : sub.failed_payment_count === 1
+            ? 'warning'
+            : 'critical'
 
       return {
-        id: contract.id,
+        id: sub.id,
         customerName: contact
           ? `${contact.first_name} ${contact.last_name}`
-          : contract.title,
-        monthlyAmount: contract.monthly_amount,
-        startDate: contract.start_date,
+          : 'Unknown',
+        monthlyAmount: sub.amount,
+        startDate: sub.created_at,
         tenure,
         paymentHealth,
-        nextBilling: format(nextBilling, 'MMM d, yyyy'),
-        endDate: contract.end_date,
-        autoRenewal: contract.auto_renewal,
+        nextBilling: sub.next_billing_date
+          ? format(new Date(sub.next_billing_date), 'MMM d, yyyy')
+          : 'N/A',
+        billingInterval: sub.billing_interval,
+        status: sub.status,
       }
     })
 
     return {
-      activeCount,
-      pastDueCount,
-      cancelledCount,
-      arpa,
+      activeCount: activeSubs.length,
+      pastDueCount: pastDueSubs.length,
+      cancelledCount: cancelledSubs.length,
       netNewMRR,
-      riskBands,
       mrrTrend,
       waterfall,
-      subscriptions,
+      tableRows,
     }
-  }, [contracts, payments, contacts, mrr])
+  }, [recurring, subscriptions, contacts])
+
+  if (loading) {
+    return <div className="py-12 text-center text-sm text-muted-foreground">Loading reports...</div>
+  }
+
+  if (!recurring || !stats) {
+    return <div className="py-12 text-center text-sm text-muted-foreground">No recurring revenue data available</div>
+  }
 
   return (
     <div className="space-y-6">
@@ -142,7 +151,7 @@ export default function Reports() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard
           title="Total MRR"
-          value={currencyFormat.format(mrr)}
+          value={currencyFormatShort.format(recurring.current_mrr)}
           trend={{ value: 'current', direction: 'up' }}
           icon={<DollarSign className="h-4 w-4" />}
         />
@@ -154,12 +163,12 @@ export default function Reports() {
         />
         <KpiCard
           title="Avg Revenue / Account"
-          value={currencyFormatShort.format(stats.arpa)}
+          value={currencyFormatShort.format(recurring.avg_revenue_per_account)}
           icon={<Users className="h-4 w-4" />}
         />
         <KpiCard
-          title="Active Customers"
-          value={String(stats.activeCount)}
+          title="Active Subscribers"
+          value={String(recurring.active_subscriptions)}
           trend={{
             value: stats.pastDueCount > 0 ? `${stats.pastDueCount} past due` : 'all current',
             direction: stats.pastDueCount > 0 ? 'down' : 'up',
@@ -190,24 +199,28 @@ export default function Reports() {
           <h3 className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
             MRR Trend (6 Months)
           </h3>
-          <ResponsiveContainer width="100%" height={260}>
-            <LineChart data={stats.mrrTrend}>
-              <XAxis dataKey="month" tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `$${v}`} />
-              <Tooltip
-                formatter={(value: number) => [currencyFormatShort.format(value), 'MRR']}
-                contentStyle={{ borderRadius: '8px', border: '1px solid var(--color-border)' }}
-              />
-              <Line
-                type="monotone"
-                dataKey="mrr"
-                stroke="#6C63FF"
-                strokeWidth={2.5}
-                dot={{ r: 4, fill: '#6C63FF' }}
-                activeDot={{ r: 6 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+          {stats.mrrTrend.length > 0 ? (
+            <ResponsiveContainer width="100%" height={260}>
+              <LineChart data={stats.mrrTrend}>
+                <XAxis dataKey="month" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `$${v}`} />
+                <Tooltip
+                  formatter={(value: number) => [currencyFormatShort.format(value), 'MRR']}
+                  contentStyle={{ borderRadius: '8px', border: '1px solid var(--color-border)' }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="mrr"
+                  stroke="#6C63FF"
+                  strokeWidth={2.5}
+                  dot={{ r: 4, fill: '#6C63FF' }}
+                  activeDot={{ r: 6 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <p className="py-12 text-center text-sm text-muted-foreground">No trend data</p>
+          )}
         </div>
 
         {/* MRR Waterfall */}
@@ -233,12 +246,12 @@ export default function Reports() {
         </div>
       </div>
 
-      {/* Customer Counts + Revenue at Risk */}
+      {/* Customer Counts + Churn */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* Customer Breakdown */}
         <div className="rounded-xl border border-border bg-white p-5 shadow-card">
           <h3 className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Customer Status
+            Subscriber Status
           </h3>
           <div className="space-y-3">
             <div className="flex items-center justify-between rounded-lg bg-success/5 p-3">
@@ -265,24 +278,40 @@ export default function Reports() {
           </div>
         </div>
 
-        {/* Revenue at Risk */}
+        {/* Churn + Revenue Health */}
         <div className="rounded-xl border border-border bg-white p-5 shadow-card">
           <h3 className="mb-4 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            <AlertTriangle className="h-3.5 w-3.5 text-warning" />
-            Revenue at Risk
+            <TrendingDown className="h-3.5 w-3.5 text-warning" />
+            Revenue Health
           </h3>
           <div className="space-y-3">
-            {stats.riskBands.map((band) => (
-              <div key={band.label} className="flex items-center justify-between rounded-lg border border-border p-3">
-                <div>
-                  <p className="text-sm font-medium text-heading">Expiring in {band.label}</p>
-                  <p className="text-xs text-muted-foreground">{band.count} contracts</p>
-                </div>
-                <span className="text-sm font-bold text-warning">
-                  {currencyFormat.format(band.amount)}/mo
-                </span>
+            <div className="flex items-center justify-between rounded-lg border border-border p-3">
+              <div>
+                <p className="text-sm font-medium text-heading">Monthly Churn Rate</p>
+                <p className="text-xs text-muted-foreground">Last 30 days</p>
               </div>
-            ))}
+              <span className={`text-lg font-bold ${recurring.churn_rate > 5 ? 'text-danger' : recurring.churn_rate > 2 ? 'text-warning' : 'text-success'}`}>
+                {recurring.churn_rate.toFixed(1)}%
+              </span>
+            </div>
+            <div className="flex items-center justify-between rounded-lg border border-border p-3">
+              <div>
+                <p className="text-sm font-medium text-heading">ARPA</p>
+                <p className="text-xs text-muted-foreground">Average revenue per account</p>
+              </div>
+              <span className="text-lg font-bold text-primary">
+                {currencyFormatShort.format(recurring.avg_revenue_per_account)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between rounded-lg border border-border p-3">
+              <div>
+                <p className="text-sm font-medium text-heading">Annual Run Rate</p>
+                <p className="text-xs text-muted-foreground">MRR x 12</p>
+              </div>
+              <span className="text-lg font-bold text-primary">
+                {currencyFormat.format(recurring.current_mrr * 12)}
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -291,7 +320,7 @@ export default function Reports() {
       <div className="rounded-xl border border-border bg-white p-5 shadow-card">
         <h3 className="mb-4 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           <Clock className="h-3.5 w-3.5" />
-          Active Subscriptions
+          Active Subscriptions ({stats.tableRows.length})
         </h3>
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -299,15 +328,15 @@ export default function Reports() {
               <tr className="border-b border-border">
                 <th className="pb-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Customer</th>
                 <th className="pb-2 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">Monthly</th>
-                <th className="pb-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Start Date</th>
+                <th className="pb-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Started</th>
                 <th className="pb-2 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground">Tenure</th>
                 <th className="pb-2 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">Payment</th>
                 <th className="pb-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Next Billing</th>
-                <th className="pb-2 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">Auto-Renew</th>
+                <th className="pb-2 text-center text-xs font-semibold uppercase tracking-wider text-muted-foreground">Interval</th>
               </tr>
             </thead>
             <tbody>
-              {stats.subscriptions.map((sub) => (
+              {stats.tableRows.map((sub) => (
                 <tr key={sub.id} className="border-b border-border/50 last:border-b-0">
                   <td className="py-2.5 text-sm font-medium text-heading">{sub.customerName}</td>
                   <td className="py-2.5 text-right text-sm font-bold text-primary">
@@ -333,16 +362,10 @@ export default function Reports() {
                     </span>
                   </td>
                   <td className="py-2.5 text-sm text-body">{sub.nextBilling}</td>
-                  <td className="py-2.5 text-center text-sm text-body">
-                    {sub.autoRenewal ? (
-                      <span className="text-success">Yes</span>
-                    ) : (
-                      <span className="text-muted-foreground">No</span>
-                    )}
-                  </td>
+                  <td className="py-2.5 text-center text-xs text-muted-foreground capitalize">{sub.billingInterval}</td>
                 </tr>
               ))}
-              {stats.subscriptions.length === 0 && (
+              {stats.tableRows.length === 0 && (
                 <tr>
                   <td colSpan={7} className="py-6 text-center text-sm text-muted-foreground">
                     No active subscriptions

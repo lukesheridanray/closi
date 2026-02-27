@@ -1,5 +1,6 @@
 import { ChevronRight, ChevronUp, ChevronDown, Plus } from 'lucide-react'
 import type { DealWithContact, PipelineStage } from '@/types/pipeline'
+import { useEntityLabels } from '@/hooks/useEntityLabels'
 import DealTableRow from './DealTableRow'
 
 const currencyFormat = new Intl.NumberFormat('en-US', {
@@ -28,7 +29,7 @@ interface StageTableSectionProps {
   onSort: (field: SortField) => void
 }
 
-const columns: { field: SortField; label: string; align?: 'right' }[] = [
+const STATIC_COLUMNS: { field: SortField; label: string; align?: 'right' }[] = [
   { field: 'title', label: 'Deal' },
   { field: 'contact', label: 'Contact' },
   { field: 'assigned_to', label: 'Owner' },
@@ -52,8 +53,12 @@ export default function StageTableSection({
   sortDir,
   onSort,
 }: StageTableSectionProps) {
-  const totalValue = deals.reduce((sum, d) => sum + d.value, 0)
-  const isDimmed = stage.is_won || stage.is_lost
+  const { deal: dealLabel } = useEntityLabels()
+  const columns = STATIC_COLUMNS.map((col) =>
+    col.field === 'title' ? { ...col, label: dealLabel.singular } : col,
+  )
+  const totalValue = deals.reduce((sum, d) => sum + d.estimated_value, 0)
+  const isDimmed = stage.is_won_stage || stage.is_lost_stage
   const dealIds = deals.map((d) => d.id)
   const allSelected = deals.length > 0 && dealIds.every((id) => selectedDeals.has(id))
 
@@ -80,7 +85,7 @@ export default function StageTableSection({
         />
         <h3 className="text-sm font-semibold text-heading">{stage.name}</h3>
         <span className="rounded-full bg-page px-2 py-0.5 text-xs font-medium text-muted-foreground flex-shrink-0">
-          {deals.length} {deals.length === 1 ? 'deal' : 'deals'}
+          {deals.length} {deals.length === 1 ? dealLabel.singularLower : dealLabel.pluralLower}
         </span>
         <span className="ml-auto text-sm font-medium text-muted-foreground flex-shrink-0">
           {currencyFormat.format(totalValue)}
@@ -142,7 +147,7 @@ export default function StageTableSection({
               ) : (
                 <tr>
                   <td colSpan={8} className="px-3 py-4 text-center text-sm italic text-muted-foreground">
-                    No deals in this stage
+                    No {dealLabel.pluralLower} in this stage
                   </td>
                 </tr>
               )}
@@ -153,7 +158,7 @@ export default function StageTableSection({
                 <tr className="border-t border-border bg-page/20">
                   <td className="px-3 py-2" />
                   <td className="px-3 py-2 text-xs font-semibold text-muted-foreground" colSpan={3}>
-                    {deals.length} {deals.length === 1 ? 'deal' : 'deals'}
+                    {deals.length} {deals.length === 1 ? dealLabel.singularLower : dealLabel.pluralLower}
                   </td>
                   <td className="px-3 py-2 text-right text-sm font-bold text-heading">
                     {currencyFormat.format(totalValue)}
@@ -168,7 +173,7 @@ export default function StageTableSection({
           <div className="border-t border-border px-4 py-2">
             <button className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-heading transition-colors">
               <Plus className="h-4 w-4" />
-              Add deal
+              Add {dealLabel.singularLower}
             </button>
           </div>
         </>

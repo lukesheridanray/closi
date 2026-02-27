@@ -91,7 +91,7 @@ export default function PipelineTable({
             cmp = (a.assigned_to ?? '').localeCompare(b.assigned_to ?? '')
             break
           case 'value':
-            cmp = a.value - b.value
+            cmp = a.estimated_value - b.estimated_value
             break
           case 'daysInStage': {
             const daysA = differenceInDays(new Date(), new Date(a.updated_at))

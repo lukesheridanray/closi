@@ -1,8 +1,9 @@
 export interface Pipeline {
   id: string
-  org_id: string
+  organization_id: string
   name: string
   is_default: boolean
+  sort_order: number
   created_at: string
   updated_at: string
 }
@@ -10,19 +11,24 @@ export interface Pipeline {
 export interface PipelineStage {
   id: string
   pipeline_id: string
+  organization_id: string
   name: string
   color: string
-  position: number
-  is_won: boolean
-  is_lost: boolean
+  sort_order: number
+  is_won_stage: boolean
+  is_lost_stage: boolean
   is_active: boolean
-  stale_days: number
+  stale_days: number | null
   created_at: string
+}
+
+export interface PipelineDetail extends Pipeline {
+  stages: PipelineStage[]
 }
 
 export interface Contact {
   id: string
-  org_id: string
+  organization_id: string
   first_name: string
   last_name: string
   email: string
@@ -37,19 +43,25 @@ export interface Contact {
 
 export interface Deal {
   id: string
-  org_id: string
+  organization_id: string
   pipeline_id: string
-  stage_id: string
+  stage_id: string | null
   contact_id: string
-  title: string
-  value: number
-  probability: number
-  expected_close_date: string | null
-  source: string
   assigned_to: string | null
-  notes: string
+  title: string
+  estimated_value: number
+  notes: string | null
+  loss_reason: string | null
+  expected_close_date: string | null
+  closed_at: string | null
   created_at: string
   updated_at: string
+}
+
+export interface DealDetail extends Deal {
+  contact_name: string | null
+  stage_name: string | null
+  assigned_user_name: string | null
 }
 
 export interface DealWithContact extends Deal {
@@ -60,7 +72,8 @@ export interface StageHistory {
   id: string
   deal_id: string
   from_stage_id: string | null
-  to_stage_id: string
+  to_stage_id: string | null
   moved_at: string
   moved_by: string | null
+  created_at: string
 }

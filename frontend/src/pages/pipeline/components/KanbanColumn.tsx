@@ -2,6 +2,7 @@ import { useDroppable } from '@dnd-kit/core'
 import { SortableContext, verticalListSortingStrategy } from '@dnd-kit/sortable'
 import { Plus } from 'lucide-react'
 import type { DealWithContact, PipelineStage } from '@/types/pipeline'
+import { useEntityLabels } from '@/hooks/useEntityLabels'
 import KanbanCard from './KanbanCard'
 
 const currencyFormat = new Intl.NumberFormat('en-US', {
@@ -18,10 +19,11 @@ interface KanbanColumnProps {
 }
 
 export default function KanbanColumn({ stage, deals, onDealClick }: KanbanColumnProps) {
+  const { deal: dealLabel } = useEntityLabels()
   const { setNodeRef, isOver } = useDroppable({ id: stage.id })
 
-  const totalValue = deals.reduce((sum, d) => sum + d.value, 0)
-  const isDimmed = stage.is_won || stage.is_lost
+  const totalValue = deals.reduce((sum, d) => sum + d.estimated_value, 0)
+  const isDimmed = stage.is_won_stage || stage.is_lost_stage
 
   return (
     <div
@@ -64,7 +66,7 @@ export default function KanbanColumn({ stage, deals, onDealClick }: KanbanColumn
             ))
           ) : (
             <p className="text-sm italic text-muted-foreground py-4 text-center">
-              No deals
+              No {dealLabel.pluralLower}
             </p>
           )}
         </div>
@@ -74,7 +76,7 @@ export default function KanbanColumn({ stage, deals, onDealClick }: KanbanColumn
       <div className="border-t border-border px-3 py-2">
         <button className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-heading transition-colors w-full">
           <Plus className="h-4 w-4" />
-          Add Deal
+          Add {dealLabel.singular}
         </button>
       </div>
     </div>

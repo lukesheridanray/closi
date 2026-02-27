@@ -28,23 +28,22 @@ interface QuoteDetailPanelProps {
 export default function QuoteDetailPanel({ quote }: QuoteDetailPanelProps) {
   const sendQuote = useQuoteStore((s) => s.sendQuote)
   const acceptQuote = useQuoteStore((s) => s.acceptQuote)
-  const createContractFromQuote = useContractStore((s) => s.createContractFromQuote)
+  const createContract = useContractStore((s) => s.createContract)
   const contacts = useContactStore((s) => s.contacts)
 
   const contact = contacts.find((c) => c.id === quote.contact_id)
 
   function handleAcceptAndCreateContract() {
     acceptQuote(quote.id)
-    createContractFromQuote({
+    createContract({
       deal_id: quote.deal_id,
       contact_id: quote.contact_id,
       quote_id: quote.id,
       title: quote.title,
       equipment_total: quote.equipment_total,
-      monthly_amount: quote.monitoring.monthly_amount,
-      term_months: quote.monitoring.term_months,
-      auto_renewal: quote.monitoring.auto_renewal,
-      equipment_list: quote.equipment_lines.map((l) => ({ name: l.product_name, quantity: l.quantity })),
+      monthly_amount: quote.monthly_monitoring_amount,
+      term_months: quote.contract_term_months,
+      equipment_lines: quote.equipment_lines.map((l) => ({ name: l.product_name, quantity: l.quantity })),
     })
   }
 
@@ -116,15 +115,15 @@ export default function QuoteDetailPanel({ quote }: QuoteDetailPanelProps) {
         <div className="grid grid-cols-3 gap-4">
           <div>
             <dt className="text-xs text-muted-foreground">Monthly</dt>
-            <dd className="mt-0.5 text-sm font-bold text-primary">{currencyFormat.format(quote.monitoring.monthly_amount)}</dd>
+            <dd className="mt-0.5 text-sm font-bold text-primary">{currencyFormat.format(quote.monthly_monitoring_amount)}</dd>
           </div>
           <div>
             <dt className="text-xs text-muted-foreground">Term</dt>
-            <dd className="mt-0.5 text-sm font-medium text-heading">{quote.monitoring.term_months} months</dd>
+            <dd className="mt-0.5 text-sm font-medium text-heading">{quote.contract_term_months} months</dd>
           </div>
           <div>
             <dt className="text-xs text-muted-foreground">Auto-Renew</dt>
-            <dd className="mt-0.5 text-sm font-medium text-heading">{quote.monitoring.auto_renewal ? 'Yes' : 'No'}</dd>
+            <dd className="mt-0.5 text-sm font-medium text-heading">{quote.auto_renewal ? 'Yes' : 'No'}</dd>
           </div>
         </div>
       </div>
@@ -136,7 +135,7 @@ export default function QuoteDetailPanel({ quote }: QuoteDetailPanelProps) {
           <span className="text-xl font-bold text-primary">{currencyFormat.format(quote.total_contract_value)}</span>
         </div>
         <p className="mt-1 text-xs text-muted-foreground">
-          {currencyFormat.format(quote.equipment_total)} equipment + {currencyFormat.format(quote.monitoring.monthly_amount)}/mo x {quote.monitoring.term_months} months
+          {currencyFormat.format(quote.equipment_total)} equipment + {currencyFormat.format(quote.monthly_monitoring_amount)}/mo x {quote.contract_term_months} months
         </p>
       </div>
 

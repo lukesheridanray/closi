@@ -73,6 +73,7 @@ class OrganizationResponse(BaseModel):
     timezone: str
     currency: str
     plan: str
+    settings: dict | None = None
 
     model_config = {"from_attributes": True}
 

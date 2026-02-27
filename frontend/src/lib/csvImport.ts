@@ -400,7 +400,7 @@ export function generateFailedCSV(
 export function buildContact(
   data: Record<string, string>,
   options: ImportOptions,
-): Omit<Contact, 'id' | 'org_id' | 'created_at' | 'updated_at'> {
+): Omit<Contact, 'id' | 'organization_id' | 'created_at' | 'updated_at'> {
   const leadSource: LeadSource =
     options.leadSourceOverride ??
     (data.lead_source as LeadSource) ??

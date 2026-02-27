@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { format, isPast, isToday } from 'date-fns'
 import { ArrowLeft, Mail, Phone, MapPin, Edit, CheckCircle2, AlertTriangle, CreditCard } from 'lucide-react'
 import type { Contact } from '@/types/contact'
@@ -9,6 +10,7 @@ import {
 import { TASK_TYPE_LABELS, TASK_PRIORITY_LABELS } from '@/types/task'
 import useContactStore from '@/stores/contactStore'
 import usePipelineStore from '@/stores/pipelineStore'
+import { useEntityLabels } from '@/hooks/useEntityLabels'
 import useTaskStore, { useTasksForContact } from '@/stores/taskStore'
 import { useContractsForContact, usePaymentsForContact } from '@/stores/contractStore'
 import { useInvoicesForContact } from '@/stores/invoiceStore'
@@ -37,14 +39,30 @@ interface ContactDetailProps {
 }
 
 export default function ContactDetail({ contact, onBack }: ContactDetailProps) {
+  const { deal: dealLabel } = useEntityLabels()
   const activities = useContactStore((s) => s.activities)
+  const fetchActivities = useContactStore((s) => s.fetchActivities)
   const deals = usePipelineStore((s) => s.deals)
   const stages = usePipelineStore((s) => s.stages)
+  const fetchPipelines = usePipelineStore((s) => s.fetchPipelines)
+  const fetchDeals = usePipelineStore((s) => s.fetchDeals)
+  const activePipelineId = usePipelineStore((s) => s.activePipelineId)
   const contactTasks = useTasksForContact(contact.id)
   const completeTask = useTaskStore((s) => s.completeTask)
+  const fetchTasks = useTaskStore((s) => s.fetchTasks)
   const contactContracts = useContractsForContact(contact.id)
   const contactPayments = usePaymentsForContact(contact.id)
   const contactInvoices = useInvoicesForContact(contact.id)
+
+  // Fetch activities for this contact
+  useEffect(() => { fetchActivities(contact.id) }, [contact.id, fetchActivities])
+  // Ensure pipeline data is loaded for deals display
+  useEffect(() => { fetchPipelines() }, [fetchPipelines])
+  useEffect(() => {
+    if (activePipelineId) fetchDeals(activePipelineId)
+  }, [activePipelineId, fetchDeals])
+  // Ensure tasks are loaded
+  useEffect(() => { fetchTasks() }, [fetchTasks])
 
   const contactActivities = activities.filter((a) => a.contact_id === contact.id)
   const contactDeals = deals.filter((d) => d.contact_id === contact.id)
@@ -155,10 +173,10 @@ export default function ContactDetail({ contact, onBack }: ContactDetailProps) {
           {/* Deals card */}
           <div className="rounded-xl border border-border bg-white p-5 shadow-card">
             <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              Deals
+              {dealLabel.plural}
             </h3>
             {contactDeals.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No deals</p>
+              <p className="text-sm text-muted-foreground">No {dealLabel.pluralLower}</p>
             ) : (
               <div className="space-y-2">
                 {contactDeals.map((deal) => {
@@ -182,7 +200,7 @@ export default function ContactDetail({ contact, onBack }: ContactDetailProps) {
                         </div>
                       </div>
                       <span className="text-sm font-bold text-primary">
-                        ${deal.value.toLocaleString()}
+                        ${deal.estimated_value.toLocaleString()}
                       </span>
                     </div>
                   )
@@ -313,16 +331,16 @@ export default function ContactDetail({ contact, onBack }: ContactDetailProps) {
               </h3>
               <div className="space-y-2">
                 {contactPayments
-                  .sort((a, b) => new Date(b.paid_at).getTime() - new Date(a.paid_at).getTime())
+                  .sort((a, b) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime())
                   .slice(0, 5)
                   .map((payment) => (
                     <div key={payment.id} className="flex items-center justify-between rounded-lg border border-border p-2.5">
                       <div>
                         <p className="text-xs font-medium text-heading">
-                          {payment.type === 'equipment' ? 'Equipment' : 'Monitoring'}
+                          Payment
                         </p>
                         <p className="text-[10px] text-muted-foreground">
-                          {format(new Date(payment.paid_at), 'MMM d, yyyy')}
+                          {format(new Date(payment.payment_date), 'MMM d, yyyy')}
                         </p>
                       </div>
                       <div className="text-right">

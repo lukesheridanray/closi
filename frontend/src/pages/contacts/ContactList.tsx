@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Search, Plus, ChevronDown, Upload } from 'lucide-react'
 import useContactStore, { useFilteredContacts } from '@/stores/contactStore'
 import type { Contact, LeadSource, ContactStatus } from '@/types/contact'
@@ -6,6 +6,7 @@ import { LEAD_SOURCE_LABELS, CONTACT_STATUS_LABELS } from '@/types/contact'
 import DataTable, { type Column } from '@/components/shared/DataTable'
 import ContactDetail from './components/ContactDetail'
 import CSVImportModal from './components/CSVImportModal'
+import CreateContactModal from './components/CreateContactModal'
 
 const sourceOptions: { value: LeadSource | 'all'; label: string }[] = [
   { value: 'all', label: 'All Sources' },
@@ -102,8 +103,13 @@ const columns: Column<Contact>[] = [
 
 export default function ContactList() {
   const [showImport, setShowImport] = useState(false)
+  const [showCreate, setShowCreate] = useState(false)
   const selectedContactId = useContactStore((s) => s.selectedContactId)
   const allContacts = useContactStore((s) => s.contacts)
+  const loading = useContactStore((s) => s.loading)
+  const fetchContacts = useContactStore((s) => s.fetchContacts)
+
+  useEffect(() => { fetchContacts() }, [fetchContacts])
   const search = useContactStore((s) => s.search)
   const sourceFilter = useContactStore((s) => s.sourceFilter)
   const statusFilter = useContactStore((s) => s.statusFilter)
@@ -130,6 +136,10 @@ export default function ContactList() {
         onBack={() => selectContact(null)}
       />
     )
+  }
+
+  if (loading && allContacts.length === 0) {
+    return <div className="py-12 text-center text-sm text-muted-foreground">Loading contacts...</div>
   }
 
   return (
@@ -190,7 +200,10 @@ export default function ContactList() {
         </button>
 
         {/* Add contact button */}
-        <button className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white shadow-card transition-colors hover:bg-primary-hover">
+        <button
+          onClick={() => setShowCreate(true)}
+          className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white shadow-card transition-colors hover:bg-primary-hover"
+        >
           <Plus className="h-4 w-4" />
           Add Contact
         </button>
@@ -218,6 +231,7 @@ export default function ContactList() {
       />
 
       {showImport && <CSVImportModal onClose={() => setShowImport(false)} />}
+      <CreateContactModal open={showCreate} onClose={() => setShowCreate(false)} />
     </div>
   )
 }

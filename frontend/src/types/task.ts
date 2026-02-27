@@ -1,20 +1,20 @@
 export interface Task {
   id: string
-  org_id: string
+  organization_id: string
   contact_id: string | null
   deal_id: string | null
   assigned_to: string | null
-  created_by: string
+  created_by: string | null
   title: string
-  description: string
+  description: string | null
   priority: TaskPriority
   status: TaskStatus
   type: TaskType
-  due_date: string
+  due_date: string | null
   due_time: string | null
-  duration_minutes: number
+  duration_minutes: number | null
   is_all_day: boolean
-  recurrence: TaskRecurrence | null
+  recurrence: TaskRecurrence
   completed_at: string | null
   completed_by: string | null
   created_at: string

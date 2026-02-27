@@ -16,9 +16,20 @@ import {
   arrayMove,
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { ArrowLeft, GripVertical, Trash2, Plus } from 'lucide-react'
+import { ArrowLeft, GripVertical, Trash2, Plus, Check } from 'lucide-react'
 import usePipelineStore from '@/stores/pipelineStore'
+import useAuthStore from '@/stores/authStore'
+import { organizationApi } from '@/lib/api'
+import { useEntityLabels } from '@/hooks/useEntityLabels'
 import type { PipelineStage } from '@/types/pipeline'
+
+const LABEL_PRESETS = [
+  { singular: 'Deal', plural: 'Deals' },
+  { singular: 'Lead', plural: 'Leads' },
+  { singular: 'Opportunity', plural: 'Opportunities' },
+  { singular: 'Job', plural: 'Jobs' },
+  { singular: 'Project', plural: 'Projects' },
+] as const
 
 const PRESET_COLORS = [
   '#6C63FF', '#3B82F6', '#8B5CF6', '#EC4899',
@@ -32,11 +43,17 @@ export default function PipelineSettings() {
   const stages = usePipelineStore((s) => s.stages)
   const deals = usePipelineStore((s) => s.deals)
   const activePipelineId = usePipelineStore((s) => s.activePipelineId)
+  const loading = usePipelineStore((s) => s.loading)
+  const fetchPipelines = usePipelineStore((s) => s.fetchPipelines)
+  const fetchDeals = usePipelineStore((s) => s.fetchDeals)
   const renamePipeline = usePipelineStore((s) => s.renamePipeline)
   const addStage = usePipelineStore((s) => s.addStage)
   const updateStage = usePipelineStore((s) => s.updateStage)
   const deleteStage = usePipelineStore((s) => s.deleteStage)
   const reorderStages = usePipelineStore((s) => s.reorderStages)
+
+  const { deal: dealLabel } = useEntityLabels()
+  const updateOrganization = useAuthStore((s) => s.updateOrganization)
 
   const activePipeline = pipelines.find((p) => p.id === activePipelineId)
   const [pipelineName, setPipelineName] = useState(activePipeline?.name ?? '')
@@ -45,6 +62,63 @@ export default function PipelineSettings() {
     dealCount: number
     reassignStageId: string
   } | null>(null)
+
+  // Entity label state
+  const [labelMode, setLabelMode] = useState<'preset' | 'custom'>('preset')
+  const [customSingular, setCustomSingular] = useState('')
+  const [customPlural, setCustomPlural] = useState('')
+  const [savingLabel, setSavingLabel] = useState(false)
+  const [labelSaved, setLabelSaved] = useState(false)
+
+  // Determine the currently selected preset index (or -1 for custom)
+  const activePresetIndex = LABEL_PRESETS.findIndex(
+    (p) => p.singular === dealLabel.singular && p.plural === dealLabel.plural,
+  )
+
+  // Initialize custom fields when switching to custom
+  useEffect(() => {
+    if (activePresetIndex === -1) {
+      setLabelMode('custom')
+      setCustomSingular(dealLabel.singular)
+      setCustomPlural(dealLabel.plural)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleSelectPreset = async (preset: { singular: string; plural: string }) => {
+    if (preset.singular === dealLabel.singular && preset.plural === dealLabel.plural) return
+    setSavingLabel(true)
+    try {
+      const updated = await organizationApi.update({
+        settings: { entity_labels: { deal: { singular: preset.singular, plural: preset.plural } } },
+      } as any)
+      updateOrganization(updated)
+      setLabelMode('preset')
+      setLabelSaved(true)
+      setTimeout(() => setLabelSaved(false), 2000)
+    } catch { /* silently fail */ }
+    setSavingLabel(false)
+  }
+
+  const handleSaveCustomLabel = async () => {
+    const s = customSingular.trim()
+    const p = customPlural.trim()
+    if (!s || !p) return
+    setSavingLabel(true)
+    try {
+      const updated = await organizationApi.update({
+        settings: { entity_labels: { deal: { singular: s, plural: p } } },
+      } as any)
+      updateOrganization(updated)
+      setLabelSaved(true)
+      setTimeout(() => setLabelSaved(false), 2000)
+    } catch { /* silently fail */ }
+    setSavingLabel(false)
+  }
+
+  useEffect(() => { fetchPipelines() }, [fetchPipelines])
+  useEffect(() => {
+    if (activePipelineId) fetchDeals(activePipelineId)
+  }, [activePipelineId, fetchDeals])
 
   // Sync pipeline name with store when it changes externally
   useEffect(() => {
@@ -56,7 +130,7 @@ export default function PipelineSettings() {
   const pipelineStages = useMemo(
     () => stages
       .filter((s) => s.pipeline_id === activePipelineId)
-      .sort((a, b) => a.position - b.position),
+      .sort((a, b) => a.sort_order - b.sort_order),
     [stages, activePipelineId],
   )
 
@@ -120,8 +194,8 @@ export default function PipelineSettings() {
     addStage(activePipelineId, {
       name: 'New Stage',
       color: PRESET_COLORS[pipelineStages.length % PRESET_COLORS.length],
-      is_won: false,
-      is_lost: false,
+      is_won_stage: false,
+      is_lost_stage: false,
       is_active: true,
       stale_days: 7,
     })
@@ -142,6 +216,10 @@ export default function PipelineSettings() {
     () => pipelineStages.filter((s) => s.id !== deleteConfirm?.stageId),
     [pipelineStages, deleteConfirm?.stageId],
   )
+
+  if (loading && pipelines.length === 0) {
+    return <div className="py-12 text-center text-sm text-muted-foreground">Loading pipeline settings...</div>
+  }
 
   return (
     <div className="mx-auto max-w-3xl space-y-6">
@@ -179,6 +257,93 @@ export default function PipelineSettings() {
         </div>
       </div>
 
+      {/* Entity Label */}
+      <div className="rounded-xl border border-border bg-white p-5 shadow-card">
+        <h2 className="mb-1 text-sm font-semibold text-heading">
+          What do you call your pipeline items?
+        </h2>
+        <p className="mb-4 text-xs text-muted-foreground">
+          Choose a name that fits your business. This changes labels across the entire app.
+        </p>
+
+        <div className="flex flex-wrap gap-2">
+          {LABEL_PRESETS.map((preset, i) => (
+            <button
+              key={preset.singular}
+              onClick={() => handleSelectPreset(preset)}
+              disabled={savingLabel}
+              className={`flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
+                labelMode === 'preset' && activePresetIndex === i
+                  ? 'border-primary bg-primary/5 text-primary'
+                  : 'border-border text-heading hover:border-primary/50'
+              } disabled:opacity-50`}
+            >
+              {labelMode === 'preset' && activePresetIndex === i && (
+                <Check className="h-3.5 w-3.5" />
+              )}
+              {preset.plural}
+            </button>
+          ))}
+          <button
+            onClick={() => {
+              setLabelMode('custom')
+              if (!customSingular) {
+                setCustomSingular(dealLabel.singular)
+                setCustomPlural(dealLabel.plural)
+              }
+            }}
+            disabled={savingLabel}
+            className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition-colors ${
+              labelMode === 'custom'
+                ? 'border-primary bg-primary/5 text-primary'
+                : 'border-border text-heading hover:border-primary/50'
+            } disabled:opacity-50`}
+          >
+            Custom...
+          </button>
+        </div>
+
+        {labelMode === 'custom' && (
+          <div className="mt-4 flex items-end gap-3">
+            <div className="flex-1">
+              <label className="mb-1 block text-xs font-medium text-heading">Singular</label>
+              <input
+                type="text"
+                value={customSingular}
+                onChange={(e) => setCustomSingular(e.target.value)}
+                placeholder="e.g. Estimate"
+                maxLength={30}
+                className="w-full border-b border-border bg-transparent px-1 py-1.5 text-sm text-heading outline-none transition-colors focus:border-primary"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="mb-1 block text-xs font-medium text-heading">Plural</label>
+              <input
+                type="text"
+                value={customPlural}
+                onChange={(e) => setCustomPlural(e.target.value)}
+                placeholder="e.g. Estimates"
+                maxLength={30}
+                className="w-full border-b border-border bg-transparent px-1 py-1.5 text-sm text-heading outline-none transition-colors focus:border-primary"
+              />
+            </div>
+            <button
+              onClick={handleSaveCustomLabel}
+              disabled={savingLabel || !customSingular.trim() || !customPlural.trim()}
+              className="rounded-lg bg-primary px-4 py-1.5 text-sm font-medium text-white transition-colors hover:bg-primary-hover disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Save
+            </button>
+          </div>
+        )}
+
+        {labelSaved && (
+          <p className="mt-2 text-xs font-medium text-green-600">
+            Label updated successfully
+          </p>
+        )}
+      </div>
+
       {/* Stages */}
       <div className="rounded-xl border border-border bg-white p-5 shadow-card">
         <h2 className="mb-4 text-sm font-semibold text-heading">Stages</h2>
@@ -198,6 +363,7 @@ export default function PipelineSettings() {
                   key={stage.id}
                   stage={stage}
                   dealCount={dealCountByStage.get(stage.id) ?? 0}
+                  dealLabel={dealLabel}
                   onUpdate={updateStage}
                   onDelete={() => handleDeleteClick(stage.id)}
                 />
@@ -233,13 +399,13 @@ export default function PipelineSettings() {
               Delete Stage
             </h3>
             <p id="delete-stage-desc" className="mt-2 text-sm text-muted-foreground">
-              This stage has <span className="font-semibold text-heading">{deleteConfirm.dealCount}</span> deal{deleteConfirm.dealCount !== 1 ? 's' : ''} in it. Choose a stage to move them to before deleting.
+              This stage has <span className="font-semibold text-heading">{deleteConfirm.dealCount}</span> {deleteConfirm.dealCount !== 1 ? dealLabel.pluralLower : dealLabel.singularLower} in it. Choose a stage to move them to before deleting.
             </p>
 
             {/* Reassignment target selector */}
             <div className="mt-4">
               <label className="mb-1.5 block text-xs font-medium text-heading">
-                Move deals to
+                Move {dealLabel.pluralLower} to
               </label>
               <select
                 value={deleteConfirm.reassignStageId}
@@ -279,11 +445,12 @@ export default function PipelineSettings() {
 interface StageRowProps {
   stage: PipelineStage
   dealCount: number
+  dealLabel: { singularLower: string; pluralLower: string }
   onUpdate: (stageId: string, updates: Partial<Pick<PipelineStage, 'name' | 'color' | 'stale_days' | 'is_active'>>) => void
   onDelete: () => void
 }
 
-function StageRow({ stage, dealCount, onUpdate, onDelete }: StageRowProps) {
+function StageRow({ stage, dealCount, dealLabel, onUpdate, onDelete }: StageRowProps) {
   const [showColorPicker, setShowColorPicker] = useState(false)
   const [localName, setLocalName] = useState(stage.name)
   const colorPickerRef = useRef<HTMLDivElement>(null)
@@ -410,24 +577,24 @@ function StageRow({ stage, dealCount, onUpdate, onDelete }: StageRowProps) {
       </div>
 
       {/* Won/Lost badge */}
-      {stage.is_won && (
+      {stage.is_won_stage && (
         <span className="rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">Won</span>
       )}
-      {stage.is_lost && (
+      {stage.is_lost_stage && (
         <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">Lost</span>
       )}
 
       {/* Deal count */}
       {dealCount > 0 && (
-        <span className="text-xs text-muted-foreground">{dealCount} deal{dealCount !== 1 ? 's' : ''}</span>
+        <span className="text-xs text-muted-foreground">{dealCount} {dealCount !== 1 ? dealLabel.pluralLower : dealLabel.singularLower}</span>
       )}
 
       {/* Delete */}
       <button
         onClick={onDelete}
-        disabled={stage.is_won || stage.is_lost}
+        disabled={stage.is_won_stage || stage.is_lost_stage}
         className="text-muted-foreground/50 transition-colors hover:text-red-500 disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:text-muted-foreground/50"
-        title={stage.is_won || stage.is_lost ? 'Cannot delete Won/Lost stages' : 'Delete stage'}
+        title={stage.is_won_stage || stage.is_lost_stage ? 'Cannot delete Won/Lost stages' : 'Delete stage'}
         aria-label={`Delete ${stage.name}`}
       >
         <Trash2 className="h-4 w-4" />

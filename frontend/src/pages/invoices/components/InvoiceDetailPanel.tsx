@@ -1,7 +1,7 @@
 import { format, differenceInDays } from 'date-fns'
 import { Send, CheckCircle2, XCircle, Download, AlertTriangle } from 'lucide-react'
 import type { Invoice } from '@/types/invoice'
-import { INVOICE_TYPE_LABELS, INVOICE_STATUS_LABELS, INVOICE_STATUS_COLORS } from '@/types/invoice'
+import { INVOICE_STATUS_LABELS, INVOICE_STATUS_COLORS } from '@/types/invoice'
 import useInvoiceStore from '@/stores/invoiceStore'
 import useContactStore from '@/stores/contactStore'
 import { usePaymentsForContract } from '@/stores/contractStore'
@@ -27,19 +27,16 @@ export default function InvoiceDetailPanel({ invoice }: InvoiceDetailPanelProps)
   const contractPayments = usePaymentsForContract(invoice.contract_id)
 
   const contact = contacts.find((c) => c.id === invoice.contact_id)
-  const isOverdue = invoice.status === 'overdue'
+  const isOverdue = invoice.status === 'past_due'
   const daysOverdue = isOverdue ? differenceInDays(new Date(), new Date(invoice.due_date)) : 0
 
-  // Match payments to this invoice by date proximity and amount
+  // Match payments to this invoice by invoice_id or date proximity
   const invoicePayments = contractPayments.filter((p) => {
-    if (invoice.type === 'one_time' && p.type === 'equipment') return true
-    if (invoice.type === 'recurring' && p.type === 'monitoring') {
-      const paymentDate = new Date(p.paid_at)
-      const dueDate = new Date(invoice.due_date)
-      const diff = Math.abs(differenceInDays(paymentDate, dueDate))
-      return diff <= 35
-    }
-    return false
+    if (p.invoice_id === invoice.id) return true
+    const paymentDate = new Date(p.payment_date)
+    const dueDate = new Date(invoice.due_date)
+    const diff = Math.abs(differenceInDays(paymentDate, dueDate))
+    return diff <= 35
   })
 
   return (
@@ -48,7 +45,6 @@ export default function InvoiceDetailPanel({ invoice }: InvoiceDetailPanelProps)
       <div className="flex items-start justify-between">
         <div>
           <h3 className="text-xl font-bold text-heading">{invoice.invoice_number}</h3>
-          <p className="mt-0.5 text-sm text-muted-foreground">{INVOICE_TYPE_LABELS[invoice.type]}</p>
         </div>
         <span className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${INVOICE_STATUS_COLORS[invoice.status]}`}>
           {INVOICE_STATUS_LABELS[invoice.status]}
@@ -74,7 +70,7 @@ export default function InvoiceDetailPanel({ invoice }: InvoiceDetailPanelProps)
             Send Invoice
           </button>
         )}
-        {(invoice.status === 'sent' || invoice.status === 'overdue') && (
+        {(invoice.status === 'sent' || invoice.status === 'past_due') && (
           <button
             onClick={() => markPaid(invoice.id)}
             className="inline-flex items-center gap-1.5 rounded-lg bg-success px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-success/90"
@@ -83,7 +79,7 @@ export default function InvoiceDetailPanel({ invoice }: InvoiceDetailPanelProps)
             Mark as Paid
           </button>
         )}
-        {invoice.status !== 'paid' && invoice.status !== 'cancelled' && (
+        {invoice.status !== 'paid' && invoice.status !== 'void' && (
           <button
             onClick={() => voidInvoice(invoice.id)}
             className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-medium text-danger transition-colors hover:bg-danger/5"
@@ -157,7 +153,7 @@ export default function InvoiceDetailPanel({ invoice }: InvoiceDetailPanelProps)
                   <td className="px-3 py-2 text-sm text-heading">{line.description}</td>
                   <td className="px-3 py-2 text-right text-sm text-body">{line.quantity}</td>
                   <td className="px-3 py-2 text-right text-sm text-body">{currencyFormat.format(line.unit_price)}</td>
-                  <td className="px-3 py-2 text-right text-sm font-medium text-heading">{currencyFormat.format(line.total)}</td>
+                  <td className="px-3 py-2 text-right text-sm font-medium text-heading">{currencyFormat.format(line.amount)}</td>
                 </tr>
               ))}
             </tbody>
@@ -172,7 +168,7 @@ export default function InvoiceDetailPanel({ invoice }: InvoiceDetailPanelProps)
           <span className="text-sm text-body">{currencyFormat.format(invoice.subtotal)}</span>
         </div>
         <div className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">Tax ({(invoice.tax_rate * 100).toFixed(2)}%)</span>
+          <span className="text-sm text-muted-foreground">Tax</span>
           <span className="text-sm text-body">{currencyFormat.format(invoice.tax_amount)}</span>
         </div>
         <div className="flex items-center justify-between border-t border-border pt-2">
@@ -192,10 +188,10 @@ export default function InvoiceDetailPanel({ invoice }: InvoiceDetailPanelProps)
               <div key={payment.id} className="flex items-center justify-between rounded-lg border border-border p-2.5">
                 <div>
                   <p className="text-xs font-medium text-heading">
-                    {payment.type === 'equipment' ? 'Equipment Charge' : 'Monthly Monitoring'}
+                    Payment
                   </p>
                   <p className="text-[10px] text-muted-foreground">
-                    {format(new Date(payment.paid_at), 'MMM d, yyyy')}
+                    {format(new Date(payment.payment_date), 'MMM d, yyyy')}
                   </p>
                 </div>
                 <div className="text-right">
@@ -214,12 +210,12 @@ export default function InvoiceDetailPanel({ invoice }: InvoiceDetailPanelProps)
       )}
 
       {/* Notes */}
-      {invoice.notes && (
+      {invoice.memo && (
         <div>
           <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-            Notes
+            Memo
           </h4>
-          <p className="text-sm text-body">{invoice.notes}</p>
+          <p className="text-sm text-body">{invoice.memo}</p>
         </div>
       )}
     </div>

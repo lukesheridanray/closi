@@ -59,7 +59,7 @@ export default function KanbanCard({ deal, stage, onClick }: KanbanCardProps) {
       </p>
       <div className="flex items-center justify-between mt-2">
         <span className="text-sm font-bold text-primary">
-          {currencyFormat.format(deal.value)}
+          {currencyFormat.format(deal.estimated_value)}
         </span>
         <div className="flex items-center gap-1">
           {isStale && (
@@ -89,7 +89,7 @@ export function KanbanCardOverlay({ deal, stage }: { deal: DealWithContact; stag
       </p>
       <div className="flex items-center justify-between mt-2">
         <span className="text-sm font-bold text-primary">
-          {currencyFormat.format(deal.value)}
+          {currencyFormat.format(deal.estimated_value)}
         </span>
         <div className="flex items-center gap-1">
           {isStale && (

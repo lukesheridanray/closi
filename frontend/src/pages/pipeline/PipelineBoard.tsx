@@ -1,15 +1,19 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import usePipelineStore from '@/stores/pipelineStore'
+import { useEntityLabels } from '@/hooks/useEntityLabels'
 import SlideOutPanel from '@/components/layout/SlideOutPanel'
 import PipelineToolbar from './components/PipelineToolbar'
 import PipelineTable from './components/PipelineTable'
 import KanbanBoard from './components/KanbanBoard'
 import DealDetailPanel from './components/DealDetailPanel'
+import CreateDealModal from './components/CreateDealModal'
+import DealCSVImportModal from './components/DealCSVImportModal'
 import type { DealWithContact } from '@/types/pipeline'
 
 type ViewTab = 'table' | 'board'
 
 export default function PipelineBoard() {
+  const { deal: dealLabel } = useEntityLabels()
   const selectedDealId = usePipelineStore((s) => s.selectedDealId)
   const deals = usePipelineStore((s) => s.deals)
   const contacts = usePipelineStore((s) => s.contacts)
@@ -17,13 +21,23 @@ export default function PipelineBoard() {
   const activePipelineId = usePipelineStore((s) => s.activePipelineId)
   const selectDeal = usePipelineStore((s) => s.selectDeal)
   const moveDeal = usePipelineStore((s) => s.moveDeal)
+  const loading = usePipelineStore((s) => s.loading)
+  const fetchPipelines = usePipelineStore((s) => s.fetchPipelines)
+  const fetchDeals = usePipelineStore((s) => s.fetchDeals)
+
+  useEffect(() => { fetchPipelines() }, [fetchPipelines])
+  useEffect(() => {
+    if (activePipelineId) fetchDeals(activePipelineId)
+  }, [activePipelineId, fetchDeals])
 
   const [activeView, setActiveView] = useState<ViewTab>('table')
   const [search, setSearch] = useState('')
+  const [showCreateDeal, setShowCreateDeal] = useState(false)
+  const [showImport, setShowImport] = useState(false)
 
   // Pipeline stages sorted by position
   const pipelineStages = useMemo(
-    () => stages.filter((s) => s.pipeline_id === activePipelineId).sort((a, b) => a.position - b.position),
+    () => stages.filter((s) => s.pipeline_id === activePipelineId).sort((a, b) => a.sort_order - b.sort_order),
     [stages, activePipelineId],
   )
 
@@ -87,9 +101,13 @@ export default function PipelineBoard() {
       ? 'border-b-2 border-primary text-primary font-semibold px-4 py-2 text-sm -mb-px'
       : 'text-muted-foreground hover:text-heading px-4 py-2 text-sm -mb-px'
 
+  if (loading && deals.length === 0 && stages.length === 0) {
+    return <div className="py-12 text-center text-sm text-muted-foreground">Loading pipeline...</div>
+  }
+
   return (
     <div className="space-y-4">
-      <PipelineToolbar search={search} onSearchChange={setSearch} />
+      <PipelineToolbar search={search} onSearchChange={setSearch} onNewDeal={() => setShowCreateDeal(true)} onImport={() => setShowImport(true)} />
 
       {/* Tab bar */}
       <div className="flex items-center gap-1 border-b border-border">
@@ -124,13 +142,24 @@ export default function PipelineBoard() {
       <SlideOutPanel
         open={!!dealWithContact}
         onClose={() => selectDeal(null)}
-        title={dealWithContact?.title ?? 'Deal Details'}
+        title={dealWithContact?.title ?? `${dealLabel.singular} Details`}
         width="md"
       >
         {dealWithContact && selectedStage && (
           <DealDetailPanel deal={dealWithContact} stage={selectedStage} />
         )}
       </SlideOutPanel>
+
+      <CreateDealModal open={showCreateDeal} onClose={() => setShowCreateDeal(false)} />
+
+      {showImport && (
+        <DealCSVImportModal
+          onClose={() => {
+            setShowImport(false)
+            if (activePipelineId) fetchDeals(activePipelineId)
+          }}
+        />
+      )}
     </div>
   )
 }

@@ -1,9 +1,10 @@
+import { useEffect } from 'react'
 import { format, differenceInDays } from 'date-fns'
-import { CreditCard, Shield, Package } from 'lucide-react'
+import { Shield, Package } from 'lucide-react'
 import type { Contract } from '@/types/contract'
 import { CONTRACT_STATUS_LABELS, PAYMENT_STATUS_LABELS } from '@/types/contract'
 import useContactStore from '@/stores/contactStore'
-import { usePaymentsForContract } from '@/stores/contractStore'
+import useContractStore, { usePaymentsForContract } from '@/stores/contractStore'
 
 const currencyFormat = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -33,7 +34,11 @@ interface ContractDetailPanelProps {
 
 export default function ContractDetailPanel({ contract }: ContractDetailPanelProps) {
   const contacts = useContactStore((s) => s.contacts)
+  const fetchPayments = useContractStore((s) => s.fetchPayments)
   const payments = usePaymentsForContract(contract.id)
+
+  // Fetch payments when contract detail panel opens
+  useEffect(() => { fetchPayments({ contract_id: contract.id }) }, [contract.id, fetchPayments])
 
   const contact = contacts.find((c) => c.id === contract.contact_id)
   const daysUntilEnd = differenceInDays(new Date(contract.end_date), new Date())
@@ -76,7 +81,7 @@ export default function ContractDetailPanel({ contract }: ContractDetailPanelPro
             label="Days Until Renewal"
             value={daysUntilEnd > 0 ? `${daysUntilEnd} days` : 'Expired'}
           />
-          <Field label="Auto-Renewal" value={contract.auto_renewal ? 'Yes' : 'No'} />
+          <Field label="Total Value" value={currencyFormat.format(contract.total_value)} />
           <Field label="Equipment Total" value={currencyFormat.format(contract.equipment_total)} />
           <Field label="Tenure" value={`${monthsAsCustomer} months`} />
           <Field label="Total Paid" value={currencyFormat.format(totalPaid)} />
@@ -86,28 +91,17 @@ export default function ContractDetailPanel({ contract }: ContractDetailPanelPro
         </div>
       </div>
 
-      {/* Payment method */}
-      <div className="rounded-lg border border-border bg-page/50 p-4">
-        <h4 className="mb-3 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          <CreditCard className="h-3.5 w-3.5" />
-          Payment Method
-        </h4>
-        <p className="text-sm font-medium text-heading">
-          {contract.payment_method ?? 'No payment method on file'}
-        </p>
-      </div>
-
       {/* Equipment installed */}
       <div className="rounded-lg border border-border bg-page/50 p-4">
         <h4 className="mb-3 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           <Package className="h-3.5 w-3.5" />
           Equipment Installed
         </h4>
-        {contract.equipment_list.length === 0 ? (
+        {!contract.equipment_lines || contract.equipment_lines.length === 0 ? (
           <p className="text-sm text-muted-foreground">No equipment recorded</p>
         ) : (
           <div className="space-y-1.5">
-            {contract.equipment_list.map((item, i) => (
+            {contract.equipment_lines.map((item, i) => (
               <div key={i} className="flex items-center justify-between text-sm">
                 <span className="text-body">{item.name}</span>
                 <span className="text-muted-foreground">x{item.quantity}</span>
@@ -128,15 +122,15 @@ export default function ContractDetailPanel({ contract }: ContractDetailPanelPro
         ) : (
           <div className="space-y-2">
             {payments
-              .sort((a, b) => new Date(b.paid_at).getTime() - new Date(a.paid_at).getTime())
+              .sort((a, b) => new Date(b.payment_date).getTime() - new Date(a.payment_date).getTime())
               .map((payment) => (
                 <div key={payment.id} className="flex items-center justify-between rounded-lg border border-border bg-white p-2.5">
                   <div>
                     <p className="text-xs font-medium text-heading">
-                      {payment.type === 'equipment' ? 'Equipment' : 'Monitoring'}
+                      Payment
                     </p>
                     <p className="text-[10px] text-muted-foreground">
-                      {format(new Date(payment.paid_at), 'MMM d, yyyy')}
+                      {format(new Date(payment.payment_date), 'MMM d, yyyy')}
                     </p>
                   </div>
                   <div className="text-right">

@@ -1,10 +1,10 @@
 export interface Contact {
   id: string
-  org_id: string
+  organization_id: string
   first_name: string
   last_name: string
-  email: string
-  phone: string
+  email: string | null
+  phone: string | null
   company: string | null
   address: string | null
   city: string | null
@@ -15,7 +15,7 @@ export interface Contact {
   property_type: PropertyType | null
   assigned_to: string | null
   tags: string[]
-  notes: string
+  notes: string | null
   created_at: string
   updated_at: string
 }
@@ -27,6 +27,8 @@ export type LeadSource =
   | 'cold_call'
   | 'door_knock'
   | 'partner'
+  | 'facebook'
+  | 'walk_in'
   | 'other'
 
 export type ContactStatus =
@@ -46,13 +48,13 @@ export type PropertyType =
 
 export interface Activity {
   id: string
-  org_id: string
+  organization_id: string
   contact_id: string
   deal_id: string | null
   type: ActivityType
   subject: string
-  description: string
-  performed_by: string
+  description: string | null
+  performed_by: string | null
   performed_at: string
   created_at: string
 }
@@ -76,6 +78,8 @@ export const LEAD_SOURCE_LABELS: Record<LeadSource, string> = {
   cold_call: 'Cold Call',
   door_knock: 'Door Knock',
   partner: 'Partner',
+  facebook: 'Facebook',
+  walk_in: 'Walk-In',
   other: 'Other',
 }
 

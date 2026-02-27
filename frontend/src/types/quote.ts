@@ -6,28 +6,25 @@ export interface QuoteLine {
   total: number
 }
 
-export interface MonitoringPlan {
-  monthly_amount: number
-  term_months: number
-  auto_renewal: boolean
-}
-
 export interface Quote {
   id: string
-  org_id: string
+  organization_id: string
   deal_id: string
   contact_id: string
-  created_by: string
+  created_by: string | null
   title: string
   status: QuoteStatus
   equipment_lines: QuoteLine[]
   equipment_total: number
-  monitoring: MonitoringPlan
+  monthly_monitoring_amount: number
+  contract_term_months: number
+  auto_renewal: boolean
   total_contract_value: number
-  notes: string
+  notes: string | null
   valid_until: string | null
   sent_at: string | null
   accepted_at: string | null
+  pdf_url: string | null
   created_at: string
   updated_at: string
 }

@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { format, differenceInDays } from 'date-fns'
 import { Search, ChevronDown } from 'lucide-react'
 import useContractStore, { useFilteredContracts } from '@/stores/contractStore'
@@ -34,6 +35,9 @@ const statusOptions: { value: ContractStatus | 'all'; label: string }[] = [
 export default function ContractList() {
   const selectedContractId = useContractStore((s) => s.selectedContractId)
   const allContracts = useContractStore((s) => s.contracts)
+  const loading = useContractStore((s) => s.loading)
+  const fetchContracts = useContractStore((s) => s.fetchContracts)
+  const fetchPayments = useContractStore((s) => s.fetchPayments)
   const search = useContractStore((s) => s.search)
   const statusFilter = useContractStore((s) => s.statusFilter)
   const selectContract = useContractStore((s) => s.selectContract)
@@ -41,7 +45,12 @@ export default function ContractList() {
   const setStatusFilter = useContractStore((s) => s.setStatusFilter)
 
   const contacts = useContactStore((s) => s.contacts)
+  const fetchContacts = useContactStore((s) => s.fetchContacts)
   const contactMap = new Map(contacts.map((c) => [c.id, c]))
+
+  useEffect(() => { fetchContracts() }, [fetchContracts])
+  useEffect(() => { fetchPayments() }, [fetchPayments])
+  useEffect(() => { fetchContacts() }, [fetchContacts])
 
   const contracts = useFilteredContracts()
 
@@ -111,6 +120,10 @@ export default function ContractList() {
       ),
     },
   ]
+
+  if (loading && allContracts.length === 0) {
+    return <div className="py-12 text-center text-sm text-muted-foreground">Loading contracts...</div>
+  }
 
   return (
     <div className="space-y-4">

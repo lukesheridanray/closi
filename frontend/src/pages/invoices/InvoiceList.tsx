@@ -1,11 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { format, differenceInDays } from 'date-fns'
 import { Search, Plus, AlertTriangle } from 'lucide-react'
 import DataTable from '@/components/shared/DataTable'
 import SlideOutPanel from '@/components/layout/SlideOutPanel'
 import type { Column } from '@/components/shared/DataTable'
 import type { Invoice, InvoiceStatus } from '@/types/invoice'
-import { INVOICE_STATUS_LABELS, INVOICE_STATUS_COLORS, INVOICE_TYPE_LABELS } from '@/types/invoice'
+import { INVOICE_STATUS_LABELS, INVOICE_STATUS_COLORS } from '@/types/invoice'
 import useInvoiceStore, { useFilteredInvoices } from '@/stores/invoiceStore'
 import useContactStore from '@/stores/contactStore'
 import InvoiceDetailPanel from './components/InvoiceDetailPanel'
@@ -23,8 +23,8 @@ const statusOptions: { value: InvoiceStatus | 'all'; label: string }[] = [
   { value: 'draft', label: 'Draft' },
   { value: 'sent', label: 'Sent' },
   { value: 'paid', label: 'Paid' },
-  { value: 'overdue', label: 'Overdue' },
-  { value: 'cancelled', label: 'Cancelled' },
+  { value: 'past_due', label: 'Past Due' },
+  { value: 'void', label: 'Void' },
 ]
 
 export default function InvoiceList() {
@@ -36,10 +36,17 @@ export default function InvoiceList() {
   const selectInvoice = useInvoiceStore((s) => s.selectInvoice)
   const setPage = useInvoiceStore((s) => s.setPage)
   const allInvoices = useInvoiceStore((s) => s.invoices)
+  const loading = useInvoiceStore((s) => s.loading)
+  const fetchInvoices = useInvoiceStore((s) => s.fetchInvoices)
+
+  useEffect(() => { fetchInvoices() }, [fetchInvoices])
 
   const { invoices, totalCount, totalPages, page } = useFilteredInvoices()
   const contacts = useContactStore((s) => s.contacts)
+  const fetchContacts = useContactStore((s) => s.fetchContacts)
   const contactMap = new Map(contacts.map((c) => [c.id, c]))
+
+  useEffect(() => { fetchContacts() }, [fetchContacts])
 
   const [showCreate, setShowCreate] = useState(false)
 
@@ -48,7 +55,7 @@ export default function InvoiceList() {
     : null
 
   // Overdue summary
-  const overdueInvoices = allInvoices.filter((i) => i.status === 'overdue')
+  const overdueInvoices = allInvoices.filter((i) => i.status === 'past_due')
   const overdueTotal = overdueInvoices.reduce((sum, i) => sum + i.total, 0)
 
   const columns: Column<Invoice>[] = [
@@ -68,13 +75,6 @@ export default function InvoiceList() {
       },
     },
     {
-      key: 'type',
-      label: 'Type',
-      render: (inv) => (
-        <span className="text-xs text-muted-foreground">{INVOICE_TYPE_LABELS[inv.type]}</span>
-      ),
-    },
-    {
       key: 'total',
       label: 'Amount',
       className: 'text-right',
@@ -86,7 +86,7 @@ export default function InvoiceList() {
       key: 'due_date',
       label: 'Due Date',
       render: (inv) => {
-        const isOverdue = inv.status === 'overdue'
+        const isOverdue = inv.status === 'past_due'
         const daysOver = isOverdue ? differenceInDays(new Date(), new Date(inv.due_date)) : 0
         return (
           <div>
@@ -113,6 +113,10 @@ export default function InvoiceList() {
       ),
     },
   ]
+
+  if (loading && allInvoices.length === 0) {
+    return <div className="py-12 text-center text-sm text-muted-foreground">Loading invoices...</div>
+  }
 
   return (
     <div className="space-y-4">

@@ -7,6 +7,7 @@ import {
   ResponsiveContainer,
   Cell,
 } from 'recharts'
+import { useEntityLabels } from '@/hooks/useEntityLabels'
 
 interface Stage {
   name: string
@@ -32,9 +33,11 @@ interface CustomTooltipProps {
   active?: boolean
   payload?: { payload: Stage }[]
   label?: string
+  dealSingularLower?: string
+  dealPluralLower?: string
 }
 
-function CustomTooltip({ active, payload }: CustomTooltipProps) {
+function CustomTooltip({ active, payload, dealSingularLower = 'deal', dealPluralLower = 'deals' }: CustomTooltipProps) {
   if (!active || !payload || payload.length === 0) return null
 
   const stage = payload[0].payload
@@ -46,13 +49,14 @@ function CustomTooltip({ active, payload }: CustomTooltipProps) {
         {formatCurrency(stage.value)}
       </p>
       <p className="text-sm text-muted-foreground">
-        {stage.count} {stage.count === 1 ? 'deal' : 'deals'}
+        {stage.count} {stage.count === 1 ? dealSingularLower : dealPluralLower}
       </p>
     </div>
   )
 }
 
 export default function PipelineStageChart({ stages }: PipelineStageChartProps) {
+  const { deal: dealLabel } = useEntityLabels()
   return (
     <div className="rounded-xl border border-border bg-white p-5 shadow-card">
       <h3 className="mb-4 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
@@ -68,7 +72,7 @@ export default function PipelineStageChart({ stages }: PipelineStageChartProps) 
             width={140}
             tick={{ fontSize: 13 }}
           />
-          <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(0, 0, 0, 0.04)' }} />
+          <Tooltip content={<CustomTooltip dealSingularLower={dealLabel.singularLower} dealPluralLower={dealLabel.pluralLower} />} cursor={{ fill: 'rgba(0, 0, 0, 0.04)' }} />
           <Bar dataKey="value" radius={[0, 4, 4, 0]} barSize={24}>
             {stages.map((stage, index) => (
               <Cell key={`cell-${index}`} fill={stage.color} />

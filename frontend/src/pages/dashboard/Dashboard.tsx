@@ -1,9 +1,12 @@
-import { useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { DollarSign, TrendingUp, Trophy, Target, Users, BarChart3, RefreshCw, AlertTriangle as AlertTriangleIcon } from 'lucide-react'
 import usePipelineStore from '@/stores/pipelineStore'
-import useContractStore, { useMRR } from '@/stores/contractStore'
+import { useEntityLabels } from '@/hooks/useEntityLabels'
 import useContactStore from '@/stores/contactStore'
-import { useOverdueInvoices, useOverdueTotal } from '@/stores/invoiceStore'
+import useTaskStore from '@/stores/taskStore'
+import useInvoiceStore, { useOverdueInvoices, useOverdueTotal } from '@/stores/invoiceStore'
+import { analyticsApi } from '@/lib/api'
+import type { RecurringRevenueResponse } from '@/lib/api'
 import KpiCard from './components/KpiCard'
 import PipelineStageChart from './components/PipelineStageChart'
 import LeadSourceChart from './components/LeadSourceChart'
@@ -20,24 +23,43 @@ const currencyFormat = new Intl.NumberFormat('en-US', {
 })
 
 export default function Dashboard() {
+  const { deal: dealLabel } = useEntityLabels()
   const deals = usePipelineStore((s) => s.deals)
   const stages = usePipelineStore((s) => s.stages)
+  const pipelineLoading = usePipelineStore((s) => s.loading)
+  const fetchPipelines = usePipelineStore((s) => s.fetchPipelines)
+  const fetchDeals = usePipelineStore((s) => s.fetchDeals)
+  const activePipelineId = usePipelineStore((s) => s.activePipelineId)
   const contacts = useContactStore((s) => s.contacts)
-  const contracts = useContractStore((s) => s.contracts)
-  const payments = useContractStore((s) => s.payments)
-  const mrr = useMRR()
+  const fetchContacts = useContactStore((s) => s.fetchContacts)
+  const fetchTasks = useTaskStore((s) => s.fetchTasks)
+  const fetchInvoices = useInvoiceStore((s) => s.fetchInvoices)
   const overdueInvoices = useOverdueInvoices()
   const overdueInvoiceTotal = useOverdueTotal()
 
+  const [recurring, setRecurring] = useState<RecurringRevenueResponse | null>(null)
+
+  // Fetch all data needed by dashboard on mount
+  useEffect(() => { fetchPipelines() }, [fetchPipelines])
+  useEffect(() => {
+    if (activePipelineId) fetchDeals(activePipelineId)
+  }, [activePipelineId, fetchDeals])
+  useEffect(() => { fetchContacts() }, [fetchContacts])
+  useEffect(() => { fetchTasks() }, [fetchTasks])
+  useEffect(() => { fetchInvoices() }, [fetchInvoices])
+  useEffect(() => {
+    analyticsApi.getRecurringRevenue().then(setRecurring).catch(() => {})
+  }, [])
+
   // KPI calculations
   const kpis = useMemo(() => {
-    const wonStageIds = new Set(stages.filter((s) => s.is_won).map((s) => s.id))
-    const lostStageIds = new Set(stages.filter((s) => s.is_lost).map((s) => s.id))
+    const wonStageIds = new Set(stages.filter((s) => s.is_won_stage).map((s) => s.id))
+    const lostStageIds = new Set(stages.filter((s) => s.is_lost_stage).map((s) => s.id))
 
     // Pipeline value: sum of open deals (not won/lost)
     const pipelineValue = deals
       .filter((d) => !wonStageIds.has(d.stage_id) && !lostStageIds.has(d.stage_id))
-      .reduce((sum, d) => sum + d.value, 0)
+      .reduce((sum, d) => sum + d.estimated_value, 0)
 
     // Deals won this month
     const now = new Date()
@@ -52,22 +74,19 @@ export default function Dashboard() {
     const totalClosed = wonCount + lostCount
     const conversionRate = totalClosed > 0 ? (wonCount / totalClosed) * 100 : 0
 
-    // Active customers
-    const activeCustomers = contracts.filter((c) => c.status === 'active').length
+    // Use analytics API for recurring revenue metrics
+    const mrr = recurring?.current_mrr ?? 0
+    const activeCustomers = recurring?.active_subscriptions ?? 0
+    const arpa = recurring?.avg_revenue_per_account ?? 0
+    const churnRate = recurring?.churn_rate ?? 0
 
-    // Avg revenue per account
-    const arpa = activeCustomers > 0 ? mrr / activeCustomers : 0
-
-    // LTV estimate (assuming ~5% monthly churn as placeholder)
-    const churnRate = 0.05
-    const ltv = churnRate > 0 ? arpa * (1 / churnRate) : 0
+    // LTV estimate
+    const effectiveChurn = churnRate > 0 ? churnRate / 100 : 0.05
+    const ltv = effectiveChurn > 0 ? arpa * (1 / effectiveChurn) : 0
 
     // LTV:CAC ratio (using $500 placeholder CAC)
     const cac = 500
     const ltvCacRatio = cac > 0 ? ltv / cac : 0
-
-    // Failed payments
-    const failedPayments = payments.filter((p) => p.status === 'failed').length
 
     return {
       mrr,
@@ -79,26 +98,25 @@ export default function Dashboard() {
       ltv,
       ltvCacRatio,
       cac,
-      churnRate,
-      failedPayments,
+      churnRate: effectiveChurn,
     }
-  }, [deals, stages, contracts, payments, mrr])
+  }, [deals, stages, recurring])
 
   // Pipeline stage chart data
   const stageChartData = useMemo(() => {
-    const wonStageIds = new Set(stages.filter((s) => s.is_won).map((s) => s.id))
-    const lostStageIds = new Set(stages.filter((s) => s.is_lost).map((s) => s.id))
+    const wonStageIds = new Set(stages.filter((s) => s.is_won_stage).map((s) => s.id))
+    const lostStageIds = new Set(stages.filter((s) => s.is_lost_stage).map((s) => s.id))
 
     return stages
       .filter((s) => !wonStageIds.has(s.id) && !lostStageIds.has(s.id) && s.is_active)
-      .sort((a, b) => a.position - b.position)
+      .sort((a, b) => a.sort_order - b.sort_order)
       .map((stage) => {
         const stageDeals = deals.filter((d) => d.stage_id === stage.id)
         return {
           name: stage.name,
           color: stage.color,
           count: stageDeals.length,
-          value: stageDeals.reduce((sum, d) => sum + d.value, 0),
+          value: stageDeals.reduce((sum, d) => sum + d.estimated_value, 0),
         }
       })
   }, [deals, stages])
@@ -120,7 +138,7 @@ export default function Dashboard() {
       if (!source) return
       const label = source.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase())
       const existing = sourceMap.get(label)
-      if (existing) existing.value += d.value
+      if (existing) existing.value += d.estimated_value
     })
 
     return [...sourceMap.entries()]
@@ -130,6 +148,10 @@ export default function Dashboard() {
 
   // LTV:CAC health color
   const ltvCacColor = kpis.ltvCacRatio >= 3 ? 'up' : kpis.ltvCacRatio >= 2 ? 'neutral' : 'down'
+
+  if (pipelineLoading && deals.length === 0 && stages.length === 0) {
+    return <div className="py-12 text-center text-sm text-muted-foreground">Loading dashboard...</div>
+  }
 
   return (
     <div className="space-y-6">
@@ -144,11 +166,11 @@ export default function Dashboard() {
         <KpiCard
           title="Pipeline Value"
           value={currencyFormat.format(kpis.pipelineValue)}
-          trend={{ value: `${deals.filter((d) => !stages.find((s) => s.id === d.stage_id)?.is_won && !stages.find((s) => s.id === d.stage_id)?.is_lost).length} open deals`, direction: 'neutral' }}
+          trend={{ value: `${deals.filter((d) => !stages.find((s) => s.id === d.stage_id)?.is_won_stage && !stages.find((s) => s.id === d.stage_id)?.is_lost_stage).length} open ${dealLabel.pluralLower}`, direction: 'neutral' }}
           icon={<TrendingUp className="h-4 w-4" />}
         />
         <KpiCard
-          title="Deals Won This Month"
+          title={`${dealLabel.plural} Won This Month`}
           value={String(kpis.dealsWonThisMonth)}
           trend={{ value: 'this month', direction: kpis.dealsWonThisMonth > 0 ? 'up' : 'neutral' }}
           icon={<Trophy className="h-4 w-4" />}
@@ -209,15 +231,6 @@ export default function Dashboard() {
               <div>
                 <p className="text-sm font-semibold text-danger">{overdueInvoices.length} Overdue Invoice{overdueInvoices.length > 1 ? 's' : ''}</p>
                 <p className="text-xs text-muted-foreground">Total: {currencyFormat.format(overdueInvoiceTotal)}</p>
-              </div>
-            </div>
-          )}
-          {kpis.failedPayments > 0 && (
-            <div className="flex items-center gap-2 rounded-xl border border-danger/30 bg-danger/5 p-4 shadow-card">
-              <AlertTriangleIcon className="h-5 w-5 text-danger" />
-              <div>
-                <p className="text-sm font-semibold text-danger">{kpis.failedPayments} Failed Payments</p>
-                <p className="text-xs text-muted-foreground">Review in Contracts</p>
               </div>
             </div>
           )}

@@ -68,7 +68,7 @@ export default function DealTableRow({
       {/* Value */}
       <td className="px-3 py-2.5 text-right">
         <span className="text-sm font-bold text-primary">
-          {currencyFormat.format(deal.value)}
+          {currencyFormat.format(deal.estimated_value)}
         </span>
       </td>
 

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { format, isPast, isToday } from 'date-fns'
 import { Search, Plus, ChevronDown, CheckCircle2, AlertTriangle, Flag } from 'lucide-react'
 import useTaskStore, { useFilteredTasks } from '@/stores/taskStore'
@@ -62,7 +62,11 @@ const statusColors: Record<string, string> = {
 export default function TaskList() {
   const selectedTaskId = useTaskStore((s) => s.selectedTaskId)
   const allTasks = useTaskStore((s) => s.tasks)
+  const loading = useTaskStore((s) => s.loading)
+  const fetchTasks = useTaskStore((s) => s.fetchTasks)
   const search = useTaskStore((s) => s.search)
+
+  useEffect(() => { fetchTasks() }, [fetchTasks])
   const statusFilter = useTaskStore((s) => s.statusFilter)
   const priorityFilter = useTaskStore((s) => s.priorityFilter)
   const typeFilter = useTaskStore((s) => s.typeFilter)
@@ -80,6 +84,9 @@ export default function TaskList() {
   const setPage = useTaskStore((s) => s.setPage)
 
   const contacts = useContactStore((s) => s.contacts)
+  const fetchContacts = useContactStore((s) => s.fetchContacts)
+
+  useEffect(() => { fetchContacts() }, [fetchContacts])
 
   const { tasks, totalCount, totalPages, page } = useFilteredTasks()
 
@@ -201,6 +208,10 @@ export default function TaskList() {
       },
     },
   ]
+
+  if (loading && allTasks.length === 0) {
+    return <div className="py-12 text-center text-sm text-muted-foreground">Loading tasks...</div>
+  }
 
   return (
     <div className="space-y-4">

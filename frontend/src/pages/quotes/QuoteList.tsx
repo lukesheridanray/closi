@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { format } from 'date-fns'
 import { Search, Plus, ChevronDown } from 'lucide-react'
 import useQuoteStore, { useFilteredQuotes } from '@/stores/quoteStore'
@@ -36,6 +36,8 @@ const statusOptions: { value: QuoteStatus | 'all'; label: string }[] = [
 export default function QuoteList() {
   const selectedQuoteId = useQuoteStore((s) => s.selectedQuoteId)
   const allQuotes = useQuoteStore((s) => s.quotes)
+  const loading = useQuoteStore((s) => s.loading)
+  const fetchQuotes = useQuoteStore((s) => s.fetchQuotes)
   const search = useQuoteStore((s) => s.search)
   const statusFilter = useQuoteStore((s) => s.statusFilter)
   const sortField = useQuoteStore((s) => s.sortField)
@@ -46,7 +48,11 @@ export default function QuoteList() {
   const setSort = useQuoteStore((s) => s.setSort)
 
   const contacts = useContactStore((s) => s.contacts)
+  const fetchContacts = useContactStore((s) => s.fetchContacts)
   const contactMap = new Map(contacts.map((c) => [c.id, c]))
+
+  useEffect(() => { fetchQuotes() }, [fetchQuotes])
+  useEffect(() => { fetchContacts() }, [fetchContacts])
 
   const quotes = useFilteredQuotes()
   const [showBuilder, setShowBuilder] = useState(false)
@@ -96,7 +102,7 @@ export default function QuoteList() {
       label: 'Monthly',
       className: 'hidden md:table-cell',
       render: (q) => (
-        <span className="text-body">${q.monitoring.monthly_amount}/mo</span>
+        <span className="text-body">${q.monthly_monitoring_amount}/mo</span>
       ),
     },
     {
@@ -119,6 +125,10 @@ export default function QuoteList() {
       ),
     },
   ]
+
+  if (loading && allQuotes.length === 0) {
+    return <div className="py-12 text-center text-sm text-muted-foreground">Loading quotes...</div>
+  }
 
   return (
     <div className="space-y-4">

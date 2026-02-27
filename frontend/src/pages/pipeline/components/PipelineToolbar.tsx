@@ -1,13 +1,17 @@
 import { useNavigate } from 'react-router-dom'
-import { ChevronDown, Plus, Search, Settings } from 'lucide-react'
+import { ChevronDown, Plus, Search, Settings, Upload } from 'lucide-react'
 import usePipelineStore from '@/stores/pipelineStore'
+import { useEntityLabels } from '@/hooks/useEntityLabels'
 
 interface PipelineToolbarProps {
   search: string
   onSearchChange: (value: string) => void
+  onNewDeal?: () => void
+  onImport?: () => void
 }
 
-export default function PipelineToolbar({ search, onSearchChange }: PipelineToolbarProps) {
+export default function PipelineToolbar({ search, onSearchChange, onNewDeal, onImport }: PipelineToolbarProps) {
+  const { deal } = useEntityLabels()
   const navigate = useNavigate()
   const pipelines = usePipelineStore((s) => s.pipelines)
   const activePipelineId = usePipelineStore((s) => s.activePipelineId)
@@ -31,7 +35,7 @@ export default function PipelineToolbar({ search, onSearchChange }: PipelineTool
           type="text"
           value={search}
           onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Search deals..."
+          placeholder={`Search ${deal.pluralLower}...`}
           className="rounded-lg border border-border bg-white pl-9 pr-3 py-2 text-sm text-body placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary w-56"
         />
       </div>
@@ -59,10 +63,22 @@ export default function PipelineToolbar({ search, onSearchChange }: PipelineTool
         <Settings className="h-4 w-4" />
       </button>
 
+      {/* Import CSV button */}
+      <button
+        onClick={onImport}
+        className="flex items-center gap-2 rounded-lg border border-border bg-white px-4 py-2 text-sm font-medium text-heading shadow-card transition-colors hover:bg-page"
+      >
+        <Upload className="h-4 w-4" />
+        Import CSV
+      </button>
+
       {/* New Deal button */}
-      <button className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white shadow-card transition-colors hover:bg-primary-hover">
+      <button
+        onClick={onNewDeal}
+        className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white shadow-card transition-colors hover:bg-primary-hover"
+      >
         <Plus className="h-4 w-4" />
-        New Deal
+        New {deal.singular}
       </button>
     </div>
   )

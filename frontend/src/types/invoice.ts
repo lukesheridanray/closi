@@ -1,21 +1,25 @@
 export interface Invoice {
   id: string
-  org_id: string
-  contract_id: string
+  organization_id: string
   contact_id: string
+  contract_id: string | null
+  subscription_id: string | null
   invoice_number: string
-  type: InvoiceType
   status: InvoiceStatus
-  line_items: InvoiceLine[]
+  invoice_date: string
+  due_date: string
   subtotal: number
-  tax_rate: number
   tax_amount: number
   total: number
-  due_date: string
+  amount_paid: number
+  amount_due: number
+  currency: string
+  memo: string | null
+  line_items: InvoiceLine[] | null
+  pdf_url: string | null
   sent_at: string | null
   paid_at: string | null
   voided_at: string | null
-  notes: string | null
   created_at: string
   updated_at: string
 }
@@ -24,29 +28,23 @@ export interface InvoiceLine {
   description: string
   quantity: number
   unit_price: number
-  total: number
+  amount: number
 }
 
-export type InvoiceType = 'one_time' | 'recurring'
-export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'overdue' | 'cancelled'
-
-export const INVOICE_TYPE_LABELS: Record<InvoiceType, string> = {
-  one_time: 'One-Time',
-  recurring: 'Recurring',
-}
+export type InvoiceStatus = 'draft' | 'sent' | 'paid' | 'past_due' | 'void'
 
 export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
   draft: 'Draft',
   sent: 'Sent',
   paid: 'Paid',
-  overdue: 'Overdue',
-  cancelled: 'Cancelled',
+  past_due: 'Past Due',
+  void: 'Void',
 }
 
 export const INVOICE_STATUS_COLORS: Record<InvoiceStatus, string> = {
   draft: 'bg-muted text-muted-foreground',
   sent: 'bg-info/10 text-info',
   paid: 'bg-success/10 text-success',
-  overdue: 'bg-danger/10 text-danger',
-  cancelled: 'bg-muted text-muted-foreground',
+  past_due: 'bg-danger/10 text-danger',
+  void: 'bg-muted text-muted-foreground',
 }

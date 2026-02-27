@@ -3,6 +3,7 @@ import { X, Plus, Trash2 } from 'lucide-react'
 import useQuoteStore from '@/stores/quoteStore'
 import useContactStore from '@/stores/contactStore'
 import usePipelineStore from '@/stores/pipelineStore'
+import { useEntityLabels } from '@/hooks/useEntityLabels'
 import type { QuoteLine } from '@/types/quote'
 
 const currencyFormat = new Intl.NumberFormat('en-US', {
@@ -17,6 +18,7 @@ interface QuoteBuilderProps {
 }
 
 export default function QuoteBuilder({ onClose }: QuoteBuilderProps) {
+  const { deal: dealLabel } = useEntityLabels()
   const addQuote = useQuoteStore((s) => s.addQuote)
   const contacts = useContactStore((s) => s.contacts)
   const deals = usePipelineStore((s) => s.deals)
@@ -72,7 +74,9 @@ export default function QuoteBuilder({ onClose }: QuoteBuilderProps) {
       status: 'draft',
       equipment_lines: lines.filter((l) => l.product_name.trim()),
       equipment_total: equipmentTotal,
-      monitoring: { monthly_amount: monthlyAmount, term_months: termMonths, auto_renewal: autoRenewal },
+      monthly_monitoring_amount: monthlyAmount,
+      contract_term_months: termMonths,
+      auto_renewal: autoRenewal,
       total_contract_value: totalContractValue,
       notes: notes.trim(),
       valid_until: null,
@@ -126,14 +130,14 @@ export default function QuoteBuilder({ onClose }: QuoteBuilderProps) {
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Deal</label>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">{dealLabel.singular}</label>
                 <select
                   value={dealId}
                   onChange={(e) => setDealId(e.target.value)}
                   disabled={!contactId}
                   className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-body outline-none focus:border-primary disabled:opacity-50"
                 >
-                  <option value="">Select deal...</option>
+                  <option value="">Select {dealLabel.singularLower}...</option>
                   {contactDeals.map((d) => (
                     <option key={d.id} value={d.id}>{d.title}</option>
                   ))}

@@ -10,6 +10,17 @@ export interface User {
   organization_id: string
 }
 
+export interface EntityLabels {
+  singular: string
+  plural: string
+}
+
+export interface OrgSettings {
+  entity_labels?: {
+    deal?: EntityLabels
+  }
+}
+
 export interface Organization {
   id: string
   name: string
@@ -24,6 +35,7 @@ export interface Organization {
   timezone: string
   currency: string
   plan: string
+  settings: OrgSettings | null
 }
 
 export interface AuthResponse {

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { differenceInDays, format, isPast, isToday } from 'date-fns'
 import { Mail, Phone, MapPin, CheckCircle2, AlertTriangle, Plus } from 'lucide-react'
 import type { DealWithContact, PipelineStage } from '@/types/pipeline'
+import { useEntityLabels } from '@/hooks/useEntityLabels'
 import { TASK_TYPE_LABELS, TASK_PRIORITY_LABELS } from '@/types/task'
 import { useTasksForDeal } from '@/stores/taskStore'
 import useTaskStore from '@/stores/taskStore'
@@ -27,6 +28,7 @@ interface DealDetailPanelProps {
 }
 
 export default function DealDetailPanel({ deal, stage }: DealDetailPanelProps) {
+  const { deal: dealLabel } = useEntityLabels()
   const { contact } = deal
   const daysInStage = differenceInDays(new Date(), new Date(deal.updated_at))
   const dealTasks = useTasksForDeal(deal.id)
@@ -44,7 +46,7 @@ export default function DealDetailPanel({ deal, stage }: DealDetailPanelProps) {
           <p className="mt-0.5 text-sm text-muted-foreground">{contact.company}</p>
         )}
         <p className="mt-2 text-2xl font-bold text-primary">
-          {currencyFormat.format(deal.value)}
+          {currencyFormat.format(deal.estimated_value)}
         </p>
       </div>
 
@@ -61,15 +63,13 @@ export default function DealDetailPanel({ deal, stage }: DealDetailPanelProps) {
       {/* Deal info grid */}
       <div className="rounded-lg border border-border bg-page/50 p-4">
         <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Deal Details
+          {dealLabel.singular} Details
         </h4>
         <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-          <Field label="Probability" value={`${deal.probability}%`} />
           <Field
             label="Expected Close"
             value={deal.expected_close_date ? format(new Date(deal.expected_close_date), 'MMM d, yyyy') : 'Not set'}
           />
-          <Field label="Source" value={deal.source} />
           <Field label="Assigned To" value={deal.assigned_to ?? 'Unassigned'} />
           <Field label="Days in Stage" value={`${daysInStage} days`} />
           <Field label="Created" value={format(new Date(deal.created_at), 'MMM d, yyyy')} />
