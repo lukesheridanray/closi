@@ -447,6 +447,9 @@ export interface Organization {
   plan: string
   settings: Record<string, unknown> | null
   is_active: boolean
+  stripe_account_id: string | null
+  stripe_connected: boolean
+  stripe_onboarding_complete: boolean
   created_at: string
   updated_at: string
 }
@@ -457,6 +460,147 @@ export const organizationApi = {
 
   update: (data: Partial<Organization>) =>
     api.put<Organization>('/organization', data).then((r) => r.data),
+}
+
+// ── Stripe Integration ──────────────────────────────
+
+export interface StripeStatus {
+  connected: boolean
+  account_id: string | null
+  onboarding_complete: boolean
+  charges_enabled: boolean
+  business_name: string | null
+  environment: string | null
+  error: string | null
+}
+
+export interface SetupIntentData {
+  client_secret: string
+  setup_intent_id: string
+  customer_id: string
+  stripe_account_id: string
+}
+
+export interface PaymentProfile {
+  id: string
+  contact_id: string
+  external_customer_id: string | null
+  payment_method_type: string | null
+  payment_method_last4: string | null
+  payment_method_brand: string | null
+  payment_method_exp_month: number | null
+  payment_method_exp_year: number | null
+  is_default: boolean
+  status: string
+}
+
+export interface WebhookLog {
+  id: string
+  external_event_id: string | null
+  event_type: string
+  processing_status: string
+  error_message: string | null
+  received_at: string
+  processed_at: string | null
+}
+
+export const stripeApi = {
+  getConfig: () =>
+    api.get<{ publishable_key: string }>('/integrations/stripe/config').then((r) => r.data),
+
+  getStatus: () =>
+    api.get<StripeStatus>('/integrations/stripe/status').then((r) => r.data),
+
+  connect: () =>
+    api.get<{ url: string }>('/integrations/stripe/connect').then((r) => r.data),
+
+  callback: () =>
+    api.get('/integrations/stripe/callback').then((r) => r.data),
+
+  disconnect: () =>
+    api.delete('/integrations/stripe/disconnect').then((r) => r.data),
+
+  getDashboardLink: () =>
+    api.get<{ url: string }>('/integrations/stripe/dashboard-link').then((r) => r.data),
+
+  createSetupIntent: (contactId: string) =>
+    api.post<SetupIntentData>('/integrations/stripe/setup-intent', { contact_id: contactId }).then((r) => r.data),
+
+  attachPaymentMethod: (contactId: string, paymentMethodId: string) =>
+    api.post<PaymentProfile>('/integrations/stripe/attach-payment-method', {
+      contact_id: contactId,
+      payment_method_id: paymentMethodId,
+    }).then((r) => r.data),
+
+  createSubscription: (contractId: string) =>
+    api.post<{ id: string; status: string; amount: number }>('/integrations/stripe/create-subscription', {
+      contract_id: contractId,
+    }).then((r) => r.data),
+
+  chargeEquipment: (contractId: string) =>
+    api.post<{ payment_id: string; amount: number; status: string }>('/integrations/stripe/charge-equipment', {
+      contract_id: contractId,
+    }).then((r) => r.data),
+
+  getWebhookLogs: () =>
+    api.get<WebhookLog[]>('/integrations/stripe/webhook-logs').then((r) => r.data),
+}
+
+// ── Authorize.net Integration ───────────────────────
+
+export interface AuthnetStatus {
+  connected: boolean
+  provider_type: string
+  display_name: string | null
+  environment: string | null
+  auto_invoice: boolean | null
+  retry_failed_days: number | null
+  retry_max_attempts: number | null
+}
+
+export const authnetApi = {
+  getStatus: () =>
+    api.get<AuthnetStatus>('/integrations/authnet/status').then((r) => r.data),
+
+  connect: (data: {
+    api_login_id: string
+    transaction_key: string
+    signature_key?: string
+    environment?: string
+  }) =>
+    api.post<{ connected: boolean; environment: string }>('/integrations/authnet/connect', data).then((r) => r.data),
+
+  disconnect: () =>
+    api.delete('/integrations/authnet/disconnect').then((r) => r.data),
+
+  createCustomer: (contactId: string) =>
+    api.post<PaymentProfile>('/integrations/authnet/create-customer', { contact_id: contactId }).then((r) => r.data),
+
+  addPaymentProfile: (contactId: string, card: { card_number: string; expiration_date: string; card_code: string }) =>
+    api.post<PaymentProfile>('/integrations/authnet/add-payment-profile', {
+      contact_id: contactId,
+      ...card,
+    }).then((r) => r.data),
+
+  charge: (data: { contact_id: string; amount: number; description?: string; contract_id?: string }) =>
+    api.post<{ payment_id: string; amount: number; status: string }>('/integrations/authnet/charge', data).then((r) => r.data),
+
+  createSubscription: (contractId: string) =>
+    api.post<{ id: string; status: string; amount: number }>('/integrations/authnet/create-subscription', {
+      contract_id: contractId,
+    }).then((r) => r.data),
+
+  cancelSubscription: (subscriptionId: string, reason?: string) =>
+    api.post<{ status: string; cancelled_at: string }>('/integrations/authnet/cancel-subscription', {
+      subscription_id: subscriptionId,
+      reason: reason || 'Cancelled by user',
+    }).then((r) => r.data),
+
+  getSubscriptionStatus: (subscriptionId: string) =>
+    api.get<{ status: string; arb_status?: string; synced: boolean }>(`/integrations/authnet/subscription-status/${subscriptionId}`).then((r) => r.data),
+
+  getWebhookLogs: () =>
+    api.get<WebhookLog[]>('/integrations/authnet/webhook-logs').then((r) => r.data),
 }
 
 export default api

@@ -38,6 +38,9 @@ class OrganizationResponse(BaseModel):
     plan: str
     settings: dict | None
     is_active: bool
+    stripe_account_id: str | None = None
+    stripe_connected: bool = False
+    stripe_onboarding_complete: bool = False
     created_at: datetime
     updated_at: datetime
 

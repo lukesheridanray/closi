@@ -16,6 +16,8 @@ from app.api import (
     users as users_api,
     organization as organization_api,
     subscriptions as subscriptions_api,
+    stripe as stripe_api,
+    authnet as authnet_api,
 )
 
 settings = get_settings()
@@ -60,3 +62,5 @@ app.include_router(analytics_api.router, prefix=settings.api_prefix)
 app.include_router(users_api.router, prefix=settings.api_prefix)
 app.include_router(organization_api.router, prefix=settings.api_prefix)
 app.include_router(subscriptions_api.router, prefix=settings.api_prefix)
+app.include_router(stripe_api.router, prefix=settings.api_prefix)
+app.include_router(authnet_api.router, prefix=settings.api_prefix)

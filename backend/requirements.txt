@@ -24,6 +24,7 @@ redis==5.2.1
 
 # Payments
 stripe==11.4.1
+authorizenet==1.1.6
 
 # Email
 resend==2.5.1

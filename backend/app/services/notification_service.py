@@ -31,7 +31,7 @@ async def send_email(
     subject: str,
     html_body: str,
     *,
-    from_email: str = "CLOSI CRM <noreply@closi.app>",
+    from_email: str = "LSRV CRM <noreply@crm.lsrv.app>",
 ) -> bool:
     """Send an email via Resend.
 
@@ -69,7 +69,7 @@ async def send_invoice_email(
     html_body = f"""
     <div style="font-family: Inter, sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background: #6C63FF; padding: 24px; border-radius: 8px 8px 0 0;">
-            <h1 style="color: white; margin: 0; font-size: 20px;">CLOSI</h1>
+            <h1 style="color: white; margin: 0; font-size: 20px;">LSRV CRM</h1>
         </div>
         <div style="padding: 24px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
             <h2 style="color: #1a1a2e; margin-top: 0;">Invoice #{invoice_number}</h2>
@@ -78,7 +78,7 @@ async def send_invoice_email(
             {f'<p><a href="{pdf_url}" style="color: #6C63FF; font-weight: 600;">View Invoice PDF</a></p>' if pdf_url else ''}
         </div>
         <p style="color: #6b7280; font-size: 12px; text-align: center; margin-top: 16px;">
-            Sent via CLOSI CRM
+            Sent via LSRV CRM
         </p>
     </div>
     """
@@ -97,7 +97,7 @@ async def send_invoice_reminder(
     html_body = f"""
     <div style="font-family: Inter, sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background: #6C63FF; padding: 24px; border-radius: 8px 8px 0 0;">
-            <h1 style="color: white; margin: 0; font-size: 20px;">CLOSI</h1>
+            <h1 style="color: white; margin: 0; font-size: 20px;">LSRV CRM</h1>
         </div>
         <div style="padding: 24px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
             <h2 style="color: #1a1a2e; margin-top: 0;">Payment Reminder</h2>
@@ -106,7 +106,7 @@ async def send_invoice_reminder(
             {f'<p><a href="{pdf_url}" style="color: #6C63FF; font-weight: 600;">View Invoice PDF</a></p>' if pdf_url else ''}
         </div>
         <p style="color: #6b7280; font-size: 12px; text-align: center; margin-top: 16px;">
-            Sent via CLOSI CRM
+            Sent via LSRV CRM
         </p>
     </div>
     """
@@ -120,15 +120,15 @@ async def send_invite_email(
     invite_url: str,
 ) -> bool:
     """Send a user invitation email."""
-    subject = f"You've been invited to {org_name} on Closi"
+    subject = f"You've been invited to {org_name} on LSRV CRM"
     html_body = f"""
     <div style="font-family: Inter, sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background: #6C63FF; padding: 24px; border-radius: 8px 8px 0 0;">
-            <h1 style="color: white; margin: 0; font-size: 20px;">CLOSI</h1>
+            <h1 style="color: white; margin: 0; font-size: 20px;">LSRV CRM</h1>
         </div>
         <div style="padding: 24px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
             <h2 style="color: #1a1a2e; margin-top: 0;">You're invited!</h2>
-            <p style="color: #1a1a2e;">{inviter_name} has invited you to join <strong>{org_name}</strong> on Closi CRM.</p>
+            <p style="color: #1a1a2e;">{inviter_name} has invited you to join <strong>{org_name}</strong> on LSRV CRM CRM.</p>
             <p style="margin-top: 24px;">
                 <a href="{invite_url}" style="background: #6C63FF; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 600;">
                     Accept Invitation
@@ -136,7 +136,7 @@ async def send_invite_email(
             </p>
         </div>
         <p style="color: #6b7280; font-size: 12px; text-align: center; margin-top: 16px;">
-            Sent via CLOSI CRM
+            Sent via LSRV CRM
         </p>
     </div>
     """
@@ -154,7 +154,7 @@ async def send_overdue_reminder(
     html_body = f"""
     <div style="font-family: Inter, sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background: #6C63FF; padding: 24px; border-radius: 8px 8px 0 0;">
-            <h1 style="color: white; margin: 0; font-size: 20px;">CLOSI</h1>
+            <h1 style="color: white; margin: 0; font-size: 20px;">LSRV CRM</h1>
         </div>
         <div style="padding: 24px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
             <h2 style="color: #dc2626; margin-top: 0;">Payment Overdue</h2>
@@ -162,7 +162,7 @@ async def send_overdue_reminder(
             <p style="color: #1a1a2e;">Please arrange payment immediately to avoid service interruption.</p>
         </div>
         <p style="color: #6b7280; font-size: 12px; text-align: center; margin-top: 16px;">
-            Sent via CLOSI CRM
+            Sent via LSRV CRM
         </p>
     </div>
     """
@@ -181,7 +181,7 @@ async def send_quote_email(
     html_body = f"""
     <div style="font-family: Inter, sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background: #6C63FF; padding: 24px; border-radius: 8px 8px 0 0;">
-            <h1 style="color: white; margin: 0; font-size: 20px;">CLOSI</h1>
+            <h1 style="color: white; margin: 0; font-size: 20px;">LSRV CRM</h1>
         </div>
         <div style="padding: 24px; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 8px 8px;">
             <h2 style="color: #1a1a2e; margin-top: 0;">Hi {contact_name},</h2>
@@ -189,7 +189,7 @@ async def send_quote_email(
             {f'<p><a href="{pdf_url}" style="color: #6C63FF; font-weight: 600;">View Quote PDF</a></p>' if pdf_url else ''}
         </div>
         <p style="color: #6b7280; font-size: 12px; text-align: center; margin-top: 16px;">
-            Sent via CLOSI CRM
+            Sent via LSRV CRM
         </p>
     </div>
     """

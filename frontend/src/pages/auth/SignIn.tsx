@@ -62,7 +62,7 @@ export default function SignIn() {
           Welcome back
         </h2>
         <p className="mt-3 text-sm text-heading">
-          Sign in to your CLOSI account to continue.
+          Sign in to your LSRV CRM account to continue.
         </p>
 
         {error && (

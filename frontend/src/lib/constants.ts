@@ -1,4 +1,4 @@
-export const APP_NAME = 'CLOSI'
+export const APP_NAME = 'LSRV CRM'
 
 export const PIPELINE_COLORS = {
   new_lead: '#6C63FF',

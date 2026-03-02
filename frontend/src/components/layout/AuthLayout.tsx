@@ -54,7 +54,7 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
         {/* Content */}
         <div className="relative z-10 max-w-sm px-12 text-center">
           <h1 className="mb-3 text-4xl font-bold tracking-tight text-white">
-            CLOSI
+            LSRV CRM
           </h1>
           <p className="mb-8 text-base leading-relaxed text-white/70">
             The modern CRM built for home service businesses. Manage leads, close deals, and grow your revenue.

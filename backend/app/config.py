@@ -4,13 +4,13 @@ from functools import lru_cache
 
 class Settings(BaseSettings):
     # App
-    app_name: str = "CLOSI CRM"
+    app_name: str = "LSRV CRM"
     debug: bool = False
     api_prefix: str = "/api/v1"
 
     # Database
-    database_url: str = "postgresql+asyncpg://closi:closi@localhost:5432/closi"
-    database_url_sync: str = "postgresql://closi:closi@localhost:5432/closi"
+    database_url: str = "postgresql+asyncpg://lsrv:lsrv@localhost:5432/lsrv"
+    database_url_sync: str = "postgresql://lsrv:lsrv@localhost:5432/lsrv"
 
     # Redis
     redis_url: str = "redis://localhost:6379/0"
@@ -33,13 +33,20 @@ class Settings(BaseSettings):
 
     # Stripe
     stripe_secret_key: str = ""
+    stripe_publishable_key: str = ""
     stripe_webhook_secret: str = ""
+
+    # Authorize.net
+    authnet_api_login_id: str = ""
+    authnet_transaction_key: str = ""
+    authnet_signature_key: str = ""
+    authnet_environment: str = "sandbox"  # sandbox | production
 
     # File Storage (Cloudflare R2 / S3-compatible)
     s3_endpoint_url: str = ""
     s3_access_key_id: str = ""
     s3_secret_access_key: str = ""
-    s3_bucket_name: str = "closi"
+    s3_bucket_name: str = "lsrv"
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 

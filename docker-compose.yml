@@ -2,15 +2,15 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: closi
-      POSTGRES_PASSWORD: closi
-      POSTGRES_DB: closi
+      POSTGRES_USER: lsrv
+      POSTGRES_PASSWORD: lsrv
+      POSTGRES_DB: lsrv
     ports:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U closi"]
+      test: ["CMD-SHELL", "pg_isready -U lsrv"]
       interval: 5s
       timeout: 5s
       retries: 5

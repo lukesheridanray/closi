@@ -251,7 +251,7 @@ async def generate_pdf(
         select(Organization).where(Organization.id == org_id)
     )
     org = org_result.scalar_one_or_none()
-    org_name = org.name if org else "CLOSI"
+    org_name = org.name if org else "LSRV CRM"
     org_addr_parts = [p for p in [
         org.address_line1 if org else None,
         f"{org.city}, {org.state} {org.zip}" if org and org.city else None,

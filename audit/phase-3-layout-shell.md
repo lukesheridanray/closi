@@ -71,7 +71,7 @@
 | 1.2 | Width: 64px collapsed (w-16) | PASS |
 | 1.3 | White background | PASS |
 | 1.4 | Right border #E8E8EF | PASS |
-| 1.5 | Top: "CLOSI" brand | PASS |
+| 1.5 | Top: "LSRV CRM" brand | PASS |
 | 1.6 | Middle: 7 nav items with correct labels | PASS |
 | 1.7 | Lucide icons for each nav item | PASS |
 | 1.8 | Bottom: Settings link separated by divider | PASS |

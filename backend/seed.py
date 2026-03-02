@@ -1,5 +1,5 @@
 """
-Seed script for CLOSI CRM.
+Seed script for LSRV CRM.
 
 Populates the database with realistic home security dealer data.
 Run with: python seed.py
@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 load_dotenv()
 
 DATABASE_URL = os.getenv(
-    "DATABASE_URL_SYNC", "postgresql://closi:closi@localhost:5433/closi"
+    "DATABASE_URL_SYNC", "postgresql://lsrv:lsrv@localhost:5433/lsrv"
 )
 
 engine = create_engine(DATABASE_URL, echo=False)

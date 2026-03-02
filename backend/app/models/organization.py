@@ -29,6 +29,12 @@ class Organization(Base):
     plan: Mapped[str] = mapped_column(String(50), default="free")
     settings: Mapped[dict | None] = mapped_column(JSONB, default=dict)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    # Stripe Connect
+    stripe_account_id: Mapped[str | None] = mapped_column(String(255))
+    stripe_connected: Mapped[bool] = mapped_column(Boolean, default=False)
+    stripe_onboarding_complete: Mapped[bool] = mapped_column(Boolean, default=False)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow, nullable=False
     )

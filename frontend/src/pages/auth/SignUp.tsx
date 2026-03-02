@@ -66,7 +66,7 @@ export default function SignUp() {
           Create your account
         </h2>
         <p className="mt-3 text-sm text-heading">
-          Get started with CLOSI in just a few steps.
+          Get started with LSRV CRM in just a few steps.
         </p>
 
         {error && (
