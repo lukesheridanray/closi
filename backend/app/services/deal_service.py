@@ -12,6 +12,7 @@ from app.models.deal import Deal
 from app.models.stage_history import StageHistory
 from app.models.pipeline import PipelineStage
 from app.models.contact import Contact
+from app.models.activity import Activity
 from app.models.user import User
 from app.schemas.deals import (
     DealCreate,
@@ -226,6 +227,14 @@ async def move_stage(
     else:
         deal.closed_at = None
 
+    # Look up old stage name for activity log
+    old_stage_name = None
+    if old_stage_id:
+        old_stage_result = await db.execute(
+            select(PipelineStage.name).where(PipelineStage.id == old_stage_id)
+        )
+        old_stage_name = old_stage_result.scalar_one_or_none()
+
     # Log stage transition
     history = StageHistory(
         organization_id=org_id,
@@ -236,6 +245,19 @@ async def move_stage(
         moved_at=datetime.utcnow(),
     )
     db.add(history)
+
+    # Log activity for timeline
+    activity = Activity(
+        organization_id=org_id,
+        contact_id=deal.contact_id,
+        deal_id=deal_id,
+        type="stage_change",
+        subject=f"Moved to {target_stage.name}",
+        description=f"{old_stage_name or 'Unknown'} → {target_stage.name}",
+        performed_by=user_id,
+        performed_at=datetime.utcnow(),
+    )
+    db.add(activity)
     await db.flush()
 
     # === Stage-based automations ===
