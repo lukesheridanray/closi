@@ -53,8 +53,9 @@ export default function TasksAndCalendar() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const notificationsFilter = searchParams.get('filter') === 'notifications'
+  const initialView = searchParams.get('view') === 'calendar' ? 'calendar' : 'list'
   const [localStatusFilter, setLocalStatusFilter] = useState<TaskStatus | 'all' | 'open'>(notificationsFilter ? 'open' : 'open')
-  const [view, setView] = useState<'list' | 'calendar'>('list')
+  const [view, setView] = useState<'list' | 'calendar'>(initialView)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [createDate, setCreateDate] = useState<string | null>(null)
   const [selectedCalTask, setSelectedCalTask] = useState<Task | null>(null)

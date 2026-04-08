@@ -1,6 +1,6 @@
 import { useEffect, useCallback, useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Search, Bell, HelpCircle, CalendarDays, CheckCircle2, Plus } from 'lucide-react'
+import { Search, Bell, HelpCircle, Plus } from 'lucide-react'
 import { format, isToday, isPast } from 'date-fns'
 import useAuthStore from '@/stores/authStore'
 import useTaskStore from '@/stores/taskStore'
@@ -68,10 +68,14 @@ export default function PageHeader() {
         <div className="ml-auto flex items-center gap-4">
           {/* Today's date block */}
           <div className="hidden items-center gap-2 sm:flex">
-            <div className="flex h-9 w-9 flex-col items-center justify-center rounded-lg bg-page">
+            <button
+              onClick={() => navigate('/tasks?view=calendar')}
+              className="flex h-9 w-9 flex-col items-center justify-center rounded-lg bg-page transition-colors hover:bg-border"
+              title="Open Calendar"
+            >
               <span className="text-[9px] font-semibold uppercase leading-none text-muted-foreground">{dayOfWeek}</span>
               <span className="text-sm font-bold leading-tight text-heading">{dayNum}</span>
-            </div>
+            </button>
 
             {/* Next task preview */}
             {nextTask && (
@@ -94,64 +98,62 @@ export default function PageHeader() {
 
           {/* Action icons */}
           <div className="flex items-center gap-0.5">
-            {/* Quick add */}
-            <button
-              onClick={() => navigate('/accounts')}
-              className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-page hover:text-heading"
-              title="Add Lead"
-            >
+            <NavBarIcon label="Add Lead" onClick={() => navigate('/accounts')}>
               <Plus className="h-4 w-4" />
-            </button>
+            </NavBarIcon>
 
-            {/* Search */}
-            <button
-              onClick={() => setSearchOpen(true)}
-              className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-page hover:text-heading"
-              title="Search (Ctrl+K)"
-            >
+            <NavBarIcon label="Search" onClick={() => setSearchOpen(true)}>
               <Search className="h-4 w-4" />
-            </button>
+            </NavBarIcon>
 
-            {/* Tasks / notifications */}
-            <button
+            <NavBarIcon
+              label={`Notifications${(todayTasks + overdueTasks) > 0 ? ` (${todayTasks + overdueTasks})` : ''}`}
               onClick={() => navigate('/tasks?filter=notifications')}
-              className="relative rounded-lg p-2 text-muted-foreground transition-colors hover:bg-page hover:text-heading"
-              title={`${todayTasks} tasks today${overdueTasks > 0 ? `, ${overdueTasks} overdue` : ''}`}
+              badge={todayTasks + overdueTasks > 0 ? todayTasks + overdueTasks : undefined}
             >
               <Bell className="h-4 w-4" />
-              {(todayTasks + overdueTasks) > 0 && (
-                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-danger px-1 text-[9px] font-bold text-white">
-                  {todayTasks + overdueTasks}
-                </span>
-              )}
-            </button>
+            </NavBarIcon>
 
-            {/* Calendar */}
-            <button
-              onClick={() => navigate('/tasks')}
-              className="hidden rounded-lg p-2 text-muted-foreground transition-colors hover:bg-page hover:text-heading sm:block"
-              title="Calendar"
-            >
-              <CalendarDays className="h-4 w-4" />
-            </button>
-
-            {/* Help */}
-            <button
-              className="hidden rounded-lg p-2 text-muted-foreground transition-colors hover:bg-page hover:text-heading sm:block"
-              title="Help"
-            >
+            <NavBarIcon label="Help">
               <HelpCircle className="h-4 w-4" />
-            </button>
+            </NavBarIcon>
 
-            {/* User avatar */}
-            <div className="ml-1 flex h-7 w-7 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-white" title={user ? `${user.first_name} ${user.last_name}` : ''}>
-              {initials}
-            </div>
+            <NavBarIcon label={user ? `${user.first_name} ${user.last_name}` : 'Account'}>
+              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-white">
+                {initials}
+              </div>
+            </NavBarIcon>
           </div>
         </div>
       </header>
 
       <GlobalSearch open={searchOpen} onClose={closeSearch} />
     </>
+  )
+}
+
+function NavBarIcon({ label, onClick, badge, children }: {
+  label: string
+  onClick?: () => void
+  badge?: number
+  children: React.ReactNode
+}) {
+  return (
+    <div className="group relative">
+      <button
+        onClick={onClick}
+        className="relative rounded-lg p-2 text-muted-foreground transition-colors hover:bg-page hover:text-heading"
+      >
+        {children}
+        {badge !== undefined && badge > 0 && (
+          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-danger px-1 text-[9px] font-bold text-white">
+            {badge}
+          </span>
+        )}
+      </button>
+      <div className="pointer-events-none absolute left-1/2 top-full z-50 mt-1 -translate-x-1/2 whitespace-nowrap rounded-md bg-heading px-2.5 py-1.5 text-[10px] font-medium text-white opacity-0 shadow-dropdown transition-opacity group-hover:opacity-100">
+        {label}
+      </div>
+    </div>
   )
 }
