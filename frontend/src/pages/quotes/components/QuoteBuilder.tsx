@@ -116,11 +116,11 @@ export default function QuoteBuilder({ onClose, defaultContactId, defaultDealId 
   const [saving, setSaving] = useState(false)
 
   async function createQuote(andSend: boolean) {
-    if (!contactId || !dealId) return
+    if (!contactId) return
     setSaving(true)
     try {
       const quote = await addQuote({
-        deal_id: dealId,
+        deal_id: dealId || undefined,
         contact_id: contactId,
         created_by: 'You',
         title: titleOverride.trim() || autoTitle,
@@ -214,7 +214,7 @@ export default function QuoteBuilder({ onClose, defaultContactId, defaultDealId 
                   disabled={!contactId}
                   className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-body outline-none focus:border-primary disabled:opacity-50"
                 >
-                  <option value="">Select {dealLabel.singularLower}...</option>
+                  <option value="">No {dealLabel.singularLower}</option>
                   {contactDeals.map((d) => (
                     <option key={d.id} value={d.id}>{d.title}</option>
                   ))}
@@ -482,7 +482,7 @@ export default function QuoteBuilder({ onClose, defaultContactId, defaultDealId 
             </button>
             <button
               type="submit"
-              disabled={saving || !contactId || !dealId}
+              disabled={saving || !contactId}
               className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-heading hover:bg-page disabled:opacity-50"
             >
               {saving ? 'Saving...' : 'Save as Draft'}
@@ -490,7 +490,7 @@ export default function QuoteBuilder({ onClose, defaultContactId, defaultDealId 
             <button
               type="button"
               onClick={() => createQuote(true)}
-              disabled={saving || !contactId || !dealId}
+              disabled={saving || !contactId}
               className="rounded-lg bg-primary px-5 py-2 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-50"
             >
               {saving ? 'Sending...' : 'Create & Send'}
