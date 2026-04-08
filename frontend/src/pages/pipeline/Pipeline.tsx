@@ -4,6 +4,7 @@ import { Plus, DollarSign, Clock, User } from 'lucide-react'
 import usePipelineStore from '@/stores/pipelineStore'
 import useContactStore from '@/stores/contactStore'
 import { useSchedulingPrompt, SchedulingModal } from '@/hooks/useSchedulingPrompt'
+import CreateContactModal from '@/pages/contacts/components/CreateContactModal'
 
 const currencyFormat = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -27,6 +28,7 @@ export default function Pipeline() {
 
   const [dragDealId, setDragDealId] = useState<string | null>(null)
   const [dragOverStage, setDragOverStage] = useState<string | null>(null)
+  const [showAddLead, setShowAddLead] = useState(false)
 
   useEffect(() => { fetchPipelines() }, [fetchPipelines])
   useEffect(() => { if (activePipelineId) fetchDeals(activePipelineId) }, [activePipelineId, fetchDeals])
@@ -104,11 +106,15 @@ export default function Pipeline() {
     <div className="h-[calc(100vh-theme(spacing.12)-theme(spacing.14))]">
       {/* Pipeline header */}
       <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <p className="text-xs text-muted-foreground">
-            {deals.length} deal{deals.length !== 1 ? 's' : ''} &middot; {currencyFormat.format(deals.reduce((s, d) => s + d.estimated_value, 0))} total value
-          </p>
-        </div>
+        <p className="text-xs text-muted-foreground">
+          {deals.length} deal{deals.length !== 1 ? 's' : ''} &middot; {currencyFormat.format(deals.reduce((s, d) => s + d.estimated_value, 0))} total value
+        </p>
+        <button
+          onClick={() => setShowAddLead(true)}
+          className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover"
+        >
+          <Plus className="h-4 w-4" /> Add Lead
+        </button>
       </div>
 
       {/* Kanban columns */}
@@ -200,6 +206,14 @@ export default function Pipeline() {
       </div>
 
       <SchedulingModal {...scheduling} />
+      <CreateContactModal
+        open={showAddLead}
+        onClose={() => {
+          setShowAddLead(false)
+          if (activePipelineId) fetchDeals(activePipelineId)
+          fetchContacts()
+        }}
+      />
     </div>
   )
 }
