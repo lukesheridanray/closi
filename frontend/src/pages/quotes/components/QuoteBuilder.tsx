@@ -42,7 +42,7 @@ export default function QuoteBuilder({ onClose, defaultContactId, defaultDealId 
   const monitoringProducts = useMemo(() => products.filter((p) => p.category === 'monitoring'), [products])
 
   // Equipment lines
-  type LineItem = QuoteLine & { discount: number }
+  type LineItem = QuoteLine & { discount: number; productId?: string }
   const [lines, setLines] = useState<LineItem[]>([
     { id: '1', product_name: '', quantity: 1, unit_price: 0, discount: 0, total: 0 },
   ])
@@ -68,6 +68,7 @@ export default function QuoteBuilder({ onClose, defaultContactId, defaultDealId 
     setLines([...lines, {
       id: String(Date.now()),
       product_name: product.name,
+      productId: product.id,
       quantity: 1,
       unit_price: product.retail_price,
       discount: 0,
@@ -100,7 +101,7 @@ export default function QuoteBuilder({ onClose, defaultContactId, defaultDealId 
       if (l.id !== lineId) return l
       const subtotal = l.quantity * product.retail_price
       const discountAmt = subtotal * (l.discount / 100)
-      return { ...l, product_name: product.name, unit_price: product.retail_price, total: subtotal - discountAmt }
+      return { ...l, product_name: product.name, productId: product.id, unit_price: product.retail_price, total: subtotal - discountAmt }
     }))
   }
 
@@ -223,37 +224,11 @@ export default function QuoteBuilder({ onClose, defaultContactId, defaultDealId 
 
             {/* Quick add from catalog */}
             {equipmentProducts.length > 0 && (
-              <div>
-                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Add from Catalog</h4>
-                <div className="flex flex-wrap gap-1.5">
-                  {Object.entries(groupedProducts).map(([cat, prods]) => (
-                    <div key={cat} className="relative group">
-                      <button
-                        type="button"
-                        className="rounded-md border border-border px-2.5 py-1 text-[11px] font-medium text-heading hover:bg-page"
-                      >
-                        {categoryLabels[cat] ?? cat}
-                      </button>
-                      <div className="absolute left-0 top-full z-20 mt-1 hidden w-64 rounded-lg border border-border bg-white shadow-dropdown group-hover:block">
-                        {prods.map((p) => (
-                          <button
-                            key={p.id}
-                            type="button"
-                            onClick={() => addProductLine(p)}
-                            className="flex w-full items-center justify-between px-3 py-2 text-left text-xs hover:bg-page"
-                          >
-                            <div>
-                              <p className="font-medium text-heading">{p.name}</p>
-                              {p.sku && <p className="text-[10px] text-muted-foreground">{p.sku}</p>}
-                            </div>
-                            <span className="font-medium text-primary">{currencyFormat.format(p.retail_price)}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <CatalogPicker
+                groupedProducts={groupedProducts}
+                categoryLabels={categoryLabels}
+                onAdd={addProductLine}
+              />
             )}
 
             {/* Equipment line items */}
@@ -277,17 +252,17 @@ export default function QuoteBuilder({ onClose, defaultContactId, defaultDealId 
                         <td className="px-3 py-2">
                           {equipmentProducts.length > 0 ? (
                             <select
-                              value={equipmentProducts.find((p) => p.name === line.product_name)?.id ?? '_custom'}
+                              value={line.productId ?? ''}
                               onChange={(e) => {
-                                if (e.target.value === '_custom') {
+                                if (e.target.value === '') {
                                   updateLine(line.id, 'product_name', '')
                                 } else {
                                   selectProduct(line.id, e.target.value)
                                 }
                               }}
-                              className="w-full bg-transparent text-sm text-heading outline-none"
+                              className="w-full rounded border border-border bg-white px-2 py-1 text-sm text-heading outline-none focus:border-primary"
                             >
-                              <option value="_custom">{line.product_name || 'Select product...'}</option>
+                              <option value="">Select product...</option>
                               {equipmentProducts.map((p) => (
                                 <option key={p.id} value={p.id}>{p.name} - {currencyFormat.format(p.retail_price)}</option>
                               ))}
@@ -505,5 +480,55 @@ export default function QuoteBuilder({ onClose, defaultContactId, defaultDealId 
         </form>
       </div>
     </>
+  )
+}
+
+function CatalogPicker({ groupedProducts, categoryLabels, onAdd }: {
+  groupedProducts: Record<string, Product[]>
+  categoryLabels: Record<string, string>
+  onAdd: (product: Product) => void
+}) {
+  const [openCat, setOpenCat] = useState<string | null>(null)
+
+  return (
+    <div>
+      <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Add from Catalog</h4>
+      <div className="flex flex-wrap gap-1.5">
+        {Object.entries(groupedProducts).map(([cat, prods]) => (
+          <div key={cat} className="relative">
+            <button
+              type="button"
+              onClick={() => setOpenCat(openCat === cat ? null : cat)}
+              className={`rounded-md border px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                openCat === cat ? 'border-primary bg-primary/5 text-primary' : 'border-border text-heading hover:bg-page'
+              }`}
+            >
+              {categoryLabels[cat] ?? cat} ({prods.length})
+            </button>
+            {openCat === cat && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setOpenCat(null)} />
+                <div className="absolute left-0 top-full z-20 mt-1 w-72 rounded-lg border border-border bg-white shadow-dropdown">
+                  {prods.map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => { onAdd(p); setOpenCat(null) }}
+                      className="flex w-full items-center justify-between px-3 py-2.5 text-left text-xs hover:bg-page border-b border-border last:border-b-0"
+                    >
+                      <div>
+                        <p className="font-medium text-heading">{p.name}</p>
+                        {p.sku && <p className="text-[10px] text-muted-foreground">{p.sku}</p>}
+                      </div>
+                      <span className="font-bold text-primary">{currencyFormat.format(p.retail_price)}</span>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }
