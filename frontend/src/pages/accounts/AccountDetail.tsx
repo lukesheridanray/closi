@@ -70,6 +70,7 @@ export default function AccountDetail() {
   const fetchDeals = usePipelineStore((s) => s.fetchDeals)
   const activePipelineId = usePipelineStore((s) => s.activePipelineId)
   const moveDealRaw = usePipelineStore((s) => s.moveDeal)
+  const createDeal = usePipelineStore((s) => s.createDeal)
   const scheduling = useSchedulingPrompt()
 
   // Tasks
@@ -411,11 +412,35 @@ export default function AccountDetail() {
 
           {/* Deals card */}
           <div className="rounded-xl border border-border bg-white p-5 shadow-card">
-            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-              {dealLabel.plural}
-            </h3>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Pipeline
+              </h3>
+              {contactDeals.length === 0 && activePipelineId && (
+                <button
+                  onClick={async () => {
+                    const firstStage = stages
+                      .filter((s) => s.pipeline_id === activePipelineId && s.is_active && !s.is_won_stage && !s.is_lost_stage)
+                      .sort((a, b) => a.sort_order - b.sort_order)[0]
+                    if (!firstStage) return
+                    await createDeal({
+                      contact_id: contact.id,
+                      pipeline_id: activePipelineId,
+                      stage_id: firstStage.id,
+                      title: `${contact.first_name} ${contact.last_name}`,
+                      estimated_value: 0,
+                    })
+                    if (activePipelineId) fetchDeals(activePipelineId)
+                    fetchActivities(contact.id)
+                  }}
+                  className="flex items-center gap-1 text-[11px] font-medium text-primary hover:text-primary-hover"
+                >
+                  <Plus className="h-3 w-3" /> Add to Pipeline
+                </button>
+              )}
+            </div>
             {contactDeals.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No {dealLabel.pluralLower}</p>
+              <p className="text-sm text-muted-foreground">Not in pipeline yet</p>
             ) : (
               <div className="space-y-2">
                 {contactDeals.map((deal) => {
