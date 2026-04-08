@@ -6,11 +6,9 @@ import {
   CalendarClock,
   Wrench,
   FileCheck,
-  Building2,
   AlertTriangle as AlertTriangleIcon,
 } from 'lucide-react'
 import usePipelineStore from '@/stores/pipelineStore'
-import { useEntityLabels } from '@/hooks/useEntityLabels'
 import useContactStore from '@/stores/contactStore'
 import useTaskStore from '@/stores/taskStore'
 import useInvoiceStore, { useOverdueInvoices, useOverdueTotal } from '@/stores/invoiceStore'
@@ -21,8 +19,6 @@ import KpiCard from './components/KpiCard'
 import PipelineStageChart from './components/PipelineStageChart'
 import LeadSourceChart from './components/LeadSourceChart'
 import RecentActivityFeed from './components/RecentActivityFeed'
-import StaleDealsList from './components/StaleDealsList'
-import RepLeaderboard from './components/RepLeaderboard'
 import TasksDueToday from './components/TasksDueToday'
 
 const currencyFormat = new Intl.NumberFormat('en-US', {
@@ -34,7 +30,6 @@ const currencyFormat = new Intl.NumberFormat('en-US', {
 
 export default function Dashboard() {
   const navigate = useNavigate()
-  const { deal: dealLabel } = useEntityLabels()
   const deals = usePipelineStore((s) => s.deals)
   const stages = usePipelineStore((s) => s.stages)
   const pipelineLoading = usePipelineStore((s) => s.loading)
@@ -53,7 +48,6 @@ export default function Dashboard() {
 
   const [recurring, setRecurring] = useState<RecurringRevenueResponse | null>(null)
 
-  // Fetch all data needed by dashboard on mount
   useEffect(() => { fetchPipelines() }, [fetchPipelines])
   useEffect(() => {
     if (activePipelineId) fetchDeals(activePipelineId)
@@ -75,12 +69,9 @@ export default function Dashboard() {
     weekAhead.setDate(now.getDate() + 7)
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
 
-    const pipelineValue = openDeals
-      .reduce((sum, d) => sum + d.estimated_value, 0)
-
+    const pipelineValue = openDeals.reduce((sum, d) => sum + d.estimated_value, 0)
     const newLeads = contacts.filter((c) => c.status === 'new').length
     const activeLeads = contacts.filter((c) => c.status === 'active').length
-    const commercialOpportunities = contacts.filter((c) => c.property_type === 'commercial').length
 
     const followUpQueue = tasks.filter((task) =>
       ['pending', 'in_progress'].includes(task.status) &&
@@ -106,39 +97,24 @@ export default function Dashboard() {
     const mrr = recurring?.current_mrr ?? 0
     const activeCustomers = recurring?.active_subscriptions ?? 0
 
-    const acceptedQuotes = quotes.filter((quote) => quote.status === 'accepted').length
-    const rejectedQuotes = quotes.filter((quote) =>
-      quote.status === 'rejected' || quote.status === 'expired',
-    ).length
+    const acceptedQuotes = quotes.filter((q) => q.status === 'accepted').length
+    const rejectedQuotes = quotes.filter((q) => q.status === 'rejected' || q.status === 'expired').length
     const decisionedQuotes = acceptedQuotes + rejectedQuotes
     const quoteCloseRate = decisionedQuotes > 0 ? (acceptedQuotes / decisionedQuotes) * 100 : 0
-    const sentQuotesValue = quotes
-      .filter((quote) => quote.status === 'sent')
-      .reduce((sum, quote) => sum + quote.equipment_total, 0)
+    const sentQuotesValue = quotes.filter((q) => q.status === 'sent').reduce((sum, q) => sum + q.equipment_total, 0)
 
     return {
-      mrr,
-      pipelineValue,
-      newLeads,
-      activeLeads,
-      followUpQueue: followUpQueue.length,
-      estimatesThisWeek,
-      installQueue: installQueue.length,
-      upcomingInstalls,
-      dealsWonThisMonth,
-      activeCustomers,
-      commercialOpportunities,
-      quoteCloseRate,
-      sentQuotesValue,
+      mrr, pipelineValue, newLeads, activeLeads,
+      followUpQueue: followUpQueue.length, estimatesThisWeek,
+      installQueue: installQueue.length, upcomingInstalls,
+      dealsWonThisMonth, activeCustomers, quoteCloseRate, sentQuotesValue,
       openDeals: openDeals.length,
     }
   }, [contacts, deals, quotes, recurring, stages, tasks])
 
-  // Pipeline stage chart data
   const stageChartData = useMemo(() => {
     const wonStageIds = new Set(stages.filter((s) => s.is_won_stage).map((s) => s.id))
     const lostStageIds = new Set(stages.filter((s) => s.is_lost_stage).map((s) => s.id))
-
     return stages
       .filter((s) => !wonStageIds.has(s.id) && !lostStageIds.has(s.id) && s.is_active)
       .sort((a, b) => a.sort_order - b.sort_order)
@@ -153,7 +129,6 @@ export default function Dashboard() {
       })
   }, [deals, stages])
 
-  // Lead source chart data
   const leadSourceData = useMemo(() => {
     const sourceMap = new Map<string, { count: number; value: number }>()
     contacts.forEach((c) => {
@@ -163,7 +138,6 @@ export default function Dashboard() {
       existing.count += 1
       sourceMap.set(label, existing)
     })
-    // Add deal values by contact source
     const contactSourceMap = new Map(contacts.map((c) => [c.id, c.lead_source ?? 'unknown']))
     deals.forEach((d) => {
       const source = contactSourceMap.get(d.contact_id)
@@ -172,7 +146,6 @@ export default function Dashboard() {
       const existing = sourceMap.get(label)
       if (existing) existing.value += d.estimated_value
     })
-
     return [...sourceMap.entries()]
       .map(([source, data]) => ({ source, ...data }))
       .sort((a, b) => b.value - a.value)
@@ -184,36 +157,37 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <section className="rounded-2xl border border-border bg-white p-5 shadow-card">
         <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
           Installer Operations
         </p>
         <div className="mt-3 flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <h2 className="text-2xl font-semibold text-heading">Medley & Sons operating snapshot</h2>
+            <h2 className="text-2xl font-semibold text-heading">Operating Snapshot</h2>
             <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-              A clearer read on what needs follow-up, what is ready to install, and how monitoring revenue is trending.
+              Follow-ups, installs, and monitoring revenue at a glance.
             </p>
           </div>
           <div className="rounded-xl bg-page px-4 py-3 text-sm text-body">
-            <button onClick={() => navigate('/contacts')} className="font-semibold text-primary hover:underline">{stats.newLeads} new leads</button> waiting,
-            {' '}<button onClick={() => navigate('/tasks')} className="font-semibold text-primary hover:underline">{stats.followUpQueue} follow-ups</button> open, and <button onClick={() => navigate('/tasks')} className="font-semibold text-primary hover:underline">{stats.upcomingInstalls} installs</button> due in the next 7 days.
+            <button onClick={() => navigate('/accounts')} className="font-semibold text-primary hover:underline">{stats.newLeads} new leads</button> waiting,
+            {' '}<button onClick={() => navigate('/tasks')} className="font-semibold text-primary hover:underline">{stats.followUpQueue} follow-ups</button> open, and <button onClick={() => navigate('/tasks')} className="font-semibold text-primary hover:underline">{stats.upcomingInstalls} installs</button> due this week.
           </div>
         </div>
       </section>
 
-      {/* Primary KPI Row */}
+      {/* Primary KPIs */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard
           title="Monitoring MRR"
           value={currencyFormat.format(stats.mrr)}
-          trend={{ value: `${stats.activeCustomers} active monitoring accounts`, direction: 'up' }}
+          trend={{ value: `${stats.activeCustomers} active accounts`, direction: 'up' }}
           icon={<DollarSign className="h-4 w-4" />}
         />
         <KpiCard
           title="Follow-Up Queue"
           value={String(stats.followUpQueue)}
-          trend={{ value: `${stats.newLeads} new leads still need first contact`, direction: stats.followUpQueue > 0 ? 'down' : 'up' }}
+          trend={{ value: `${stats.newLeads} new leads need first contact`, direction: stats.followUpQueue > 0 ? 'down' : 'up' }}
           icon={<PhoneCall className="h-4 w-4" />}
         />
         <KpiCard
@@ -230,12 +204,12 @@ export default function Dashboard() {
         />
       </div>
 
-      {/* Secondary KPI Row */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      {/* Secondary KPIs */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard
           title="Open Pipeline"
           value={currencyFormat.format(stats.pipelineValue)}
-          trend={{ value: `${stats.openDeals} open ${dealLabel.pluralLower}`, direction: 'neutral' }}
+          trend={{ value: `${stats.openDeals} open deals`, direction: 'neutral' }}
           icon={<DollarSign className="h-4 w-4" />}
         />
         <KpiCard
@@ -247,49 +221,42 @@ export default function Dashboard() {
         <KpiCard
           title="Quotes Awaiting Decision"
           value={currencyFormat.format(stats.sentQuotesValue)}
-          trend={{ value: 'value currently in sent quotes', direction: 'neutral' }}
+          trend={{ value: 'value in sent quotes', direction: 'neutral' }}
           icon={<DollarSign className="h-4 w-4" />}
-        />
-        <KpiCard
-          title="Commercial Opportunities"
-          value={String(stats.commercialOpportunities)}
-          trend={{ value: 'accounts tagged commercial', direction: 'neutral' }}
-          icon={<Building2 className="h-4 w-4" />}
         />
         <KpiCard
           title="Active Monitoring"
           value={String(stats.activeCustomers)}
-          trend={{ value: 'customers on recurring monitoring', direction: 'up' }}
+          trend={{ value: 'on recurring monitoring', direction: 'up' }}
           icon={<Wrench className="h-4 w-4" />}
         />
       </div>
 
-      {/* Charts Row */}
+      {/* Overdue invoice alert */}
+      {overdueInvoices.length > 0 && (
+        <button
+          onClick={() => navigate('/billing')}
+          className="flex w-full items-center gap-3 rounded-xl border border-danger/30 bg-danger/5 p-4 shadow-card text-left transition-colors hover:bg-danger/10"
+        >
+          <AlertTriangleIcon className="h-5 w-5 flex-shrink-0 text-danger" />
+          <div>
+            <p className="text-sm font-semibold text-danger">{overdueInvoices.length} Overdue Invoice{overdueInvoices.length > 1 ? 's' : ''}</p>
+            <p className="text-xs text-muted-foreground">Total: {currencyFormat.format(overdueInvoiceTotal)}</p>
+          </div>
+        </button>
+      )}
+
+      {/* Charts */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <PipelineStageChart stages={stageChartData} />
         <LeadSourceChart data={leadSourceData} />
       </div>
 
-      {/* Bottom Grid: Activity, Tasks, Stale Deals, Leaderboard */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
+      {/* Tasks due today + recent activity */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         <TasksDueToday />
-        <StaleDealsList />
-        <div className="space-y-4">
-          {overdueInvoices.length > 0 && (
-            <div className="flex items-center gap-2 rounded-xl border border-danger/30 bg-danger/5 p-4 shadow-card">
-              <AlertTriangleIcon className="h-5 w-5 text-danger" />
-              <div>
-                <p className="text-sm font-semibold text-danger">{overdueInvoices.length} Overdue Invoice{overdueInvoices.length > 1 ? 's' : ''}</p>
-                <p className="text-xs text-muted-foreground">Total: {currencyFormat.format(overdueInvoiceTotal)}</p>
-              </div>
-            </div>
-          )}
-          <RepLeaderboard />
-        </div>
+        <RecentActivityFeed />
       </div>
-
-      {/* Recent Activity */}
-      <RecentActivityFeed />
     </div>
   )
 }

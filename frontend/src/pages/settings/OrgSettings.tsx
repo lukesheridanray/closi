@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { ArrowRight, Building2, CreditCard, GitBranch, PlugZap, Users } from 'lucide-react'
+import { ArrowRight, Building2, CreditCard, PlugZap, Users } from 'lucide-react'
 
 interface SettingsCard {
   title: string
@@ -20,12 +20,6 @@ const settingsCards: SettingsCard[] = [
     description: 'Configure lead sources, messaging tools, email providers, and third-party services.',
     path: '/settings/integrations',
     icon: <PlugZap className="h-5 w-5" />,
-  },
-  {
-    title: 'Pipeline Settings',
-    description: 'Adjust stages, labels, and workflow language so the CRM matches your sales motion.',
-    path: '/settings/pipeline',
-    icon: <GitBranch className="h-5 w-5" />,
   },
   {
     title: 'Organization',
