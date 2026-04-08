@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Plus, DollarSign, Clock, User } from 'lucide-react'
+import { Search } from 'lucide-react'
 import usePipelineStore from '@/stores/pipelineStore'
 import useContactStore from '@/stores/contactStore'
+import { dealsApi } from '@/lib/api'
 import { useSchedulingPrompt, SchedulingModal } from '@/hooks/useSchedulingPrompt'
-import CreateContactModal from '@/pages/contacts/components/CreateContactModal'
 
 const currencyFormat = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -28,7 +29,21 @@ export default function Pipeline() {
 
   const [dragDealId, setDragDealId] = useState<string | null>(null)
   const [dragOverStage, setDragOverStage] = useState<string | null>(null)
-  const [showAddLead, setShowAddLead] = useState(false)
+  const [showAddToPipeline, setShowAddToPipeline] = useState(false)
+  const [addSearch, setAddSearch] = useState('')
+
+  // Contacts not already in the pipeline
+  const contactsInPipeline = useMemo(() => new Set(deals.map((d) => d.contact_id)), [deals])
+  const availableContacts = useMemo(() => {
+    const filtered = contacts.filter((c) => !contactsInPipeline.has(c.id))
+    if (!addSearch.trim()) return filtered
+    const q = addSearch.toLowerCase()
+    return filtered.filter((c) =>
+      `${c.first_name} ${c.last_name}`.toLowerCase().includes(q) ||
+      (c.company ?? '').toLowerCase().includes(q) ||
+      (c.email ?? '').toLowerCase().includes(q)
+    )
+  }, [contacts, contactsInPipeline, addSearch])
 
   useEffect(() => { fetchPipelines() }, [fetchPipelines])
   useEffect(() => { if (activePipelineId) fetchDeals(activePipelineId) }, [activePipelineId, fetchDeals])
@@ -110,10 +125,10 @@ export default function Pipeline() {
           {deals.length} deal{deals.length !== 1 ? 's' : ''} &middot; {currencyFormat.format(deals.reduce((s, d) => s + d.estimated_value, 0))} total value
         </p>
         <button
-          onClick={() => setShowAddLead(true)}
+          onClick={() => { setShowAddToPipeline(true); setAddSearch('') }}
           className="flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover"
         >
-          <Plus className="h-4 w-4" /> Add Lead
+          <Plus className="h-4 w-4" /> Add to Pipeline
         </button>
       </div>
 
@@ -206,14 +221,74 @@ export default function Pipeline() {
       </div>
 
       <SchedulingModal {...scheduling} />
-      <CreateContactModal
-        open={showAddLead}
-        onClose={() => {
-          setShowAddLead(false)
-          if (activePipelineId) fetchDeals(activePipelineId)
-          fetchContacts()
-        }}
-      />
+
+      {/* Add to Pipeline modal */}
+      {showAddToPipeline && (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/40" onClick={() => setShowAddToPipeline(false)} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+            <div className="w-full max-w-md rounded-2xl bg-white shadow-modal overflow-hidden">
+              <div className="border-b border-border px-5 py-4">
+                <h3 className="text-sm font-semibold text-heading">Add Account to Pipeline</h3>
+                <div className="relative mt-3">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    type="text"
+                    value={addSearch}
+                    onChange={(e) => setAddSearch(e.target.value)}
+                    placeholder="Search accounts..."
+                    autoFocus
+                    className="w-full rounded-lg border border-border bg-white py-2 pl-9 pr-3 text-sm text-heading outline-none focus:border-primary"
+                  />
+                </div>
+              </div>
+              <div className="max-h-80 overflow-y-auto">
+                {availableContacts.length === 0 ? (
+                  <p className="px-5 py-8 text-center text-sm text-muted-foreground">
+                    {contacts.length === contactsInPipeline.size ? 'All accounts are already in the pipeline' : 'No matching accounts'}
+                  </p>
+                ) : (
+                  availableContacts.map((c) => (
+                    <button
+                      key={c.id}
+                      onClick={async () => {
+                        if (!activePipelineId) return
+                        const firstStage = sortedStages.find((s) => !s.is_won_stage && !s.is_lost_stage)
+                        if (!firstStage) return
+                        await dealsApi.create({
+                          contact_id: c.id,
+                          pipeline_id: activePipelineId,
+                          stage_id: firstStage.id,
+                          title: `${c.first_name} ${c.last_name}`,
+                          estimated_value: 0,
+                        })
+                        fetchDeals(activePipelineId)
+                        setShowAddToPipeline(false)
+                      }}
+                      className="flex w-full items-center gap-3 border-b border-border px-5 py-3 text-left hover:bg-page transition-colors"
+                    >
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                        {c.first_name[0]}{c.last_name[0]}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-heading truncate">{c.first_name} {c.last_name}</p>
+                        <p className="text-[10px] text-muted-foreground truncate">
+                          {[c.company, c.email, c.phone].filter(Boolean).join(' - ')}
+                        </p>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+              <div className="border-t border-border px-5 py-3">
+                <button onClick={() => setShowAddToPipeline(false)} className="text-xs font-medium text-muted-foreground hover:text-heading">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }
