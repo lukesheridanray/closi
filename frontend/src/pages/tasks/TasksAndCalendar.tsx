@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { format, isPast, isToday, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, addMonths, subMonths, isSameDay } from 'date-fns'
 import { Search, Plus, ChevronDown, ChevronLeft, ChevronRight, CheckCircle2, AlertTriangle, Flag, List, CalendarDays } from 'lucide-react'
 import useTaskStore, { useFilteredTasks } from '@/stores/taskStore'
@@ -9,7 +9,8 @@ import { TASK_STATUS_LABELS, TASK_PRIORITY_LABELS, TASK_TYPE_LABELS } from '@/ty
 import DataTable, { type Column } from '@/components/shared/DataTable'
 import CreateTaskModal from './components/CreateTaskModal'
 
-const statusOptions: { value: TaskStatus | 'all'; label: string }[] = [
+const statusOptions: { value: TaskStatus | 'all' | 'open'; label: string }[] = [
+  { value: 'open', label: 'Open' },
   { value: 'all', label: 'All Statuses' },
   ...Object.entries(TASK_STATUS_LABELS).map(([value, label]) => ({ value: value as TaskStatus, label })),
 ]
@@ -50,6 +51,9 @@ const typeColors: Record<string, { bg: string; text: string; dot: string }> = {
 
 export default function TasksAndCalendar() {
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const notificationsFilter = searchParams.get('filter') === 'notifications'
+  const [localStatusFilter, setLocalStatusFilter] = useState<TaskStatus | 'all' | 'open'>(notificationsFilter ? 'open' : 'open')
   const [view, setView] = useState<'list' | 'calendar'>('list')
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [createDate, setCreateDate] = useState<string | null>(null)
@@ -86,7 +90,33 @@ export default function TasksAndCalendar() {
   useEffect(() => { fetchTasks() }, [fetchTasks])
   useEffect(() => { fetchContacts() }, [fetchContacts])
 
-  const { tasks, totalCount, totalPages, page } = useFilteredTasks()
+  // Clear notifications filter param when user changes filters manually
+  function clearNotificationsParam() {
+    if (notificationsFilter) {
+      searchParams.delete('filter')
+      setSearchParams(searchParams, { replace: true })
+    }
+  }
+
+  const { tasks: rawTasks, totalCount: rawTotalCount, totalPages, page } = useFilteredTasks()
+
+  // Apply client-side status filter (open = hide completed/cancelled, notifications = overdue+today only)
+  const { tasks, totalCount } = useMemo(() => {
+    let filtered = rawTasks
+    if (localStatusFilter === 'open') {
+      filtered = filtered.filter((t) => t.status !== 'completed' && t.status !== 'cancelled')
+    } else if (localStatusFilter !== 'all') {
+      filtered = filtered.filter((t) => t.status === localStatusFilter)
+    }
+    if (notificationsFilter) {
+      filtered = filtered.filter((t) => {
+        if (!t.due_date) return false
+        const d = new Date(t.due_date)
+        return isToday(d) || (isPast(d) && !isToday(d))
+      })
+    }
+    return { tasks: filtered, totalCount: filtered.length }
+  }, [rawTasks, localStatusFilter, notificationsFilter])
   const contactMap = useMemo(() => new Map(contacts.map((c) => [c.id, c])), [contacts])
 
   // Calendar grid
@@ -220,6 +250,22 @@ export default function TasksAndCalendar() {
         </button>
       </div>
 
+      {/* Notifications banner */}
+      {notificationsFilter && (
+        <div className="flex items-center justify-between rounded-lg border border-warning/30 bg-warning/5 px-4 py-2">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-warning" />
+            <span className="text-sm font-medium text-heading">Showing overdue and due-today tasks only</span>
+          </div>
+          <button
+            onClick={() => { searchParams.delete('filter'); setSearchParams(searchParams, { replace: true }) }}
+            className="text-xs font-medium text-primary hover:text-primary-hover"
+          >
+            Show all
+          </button>
+        </div>
+      )}
+
       {/* List view */}
       {view === 'list' && (
         <>
@@ -234,7 +280,7 @@ export default function TasksAndCalendar() {
                 className="w-full rounded-lg border border-border bg-white py-2 pl-9 pr-3 text-sm text-heading shadow-card outline-none placeholder:text-placeholder focus:border-primary focus:ring-1 focus:ring-primary/20"
               />
             </div>
-            <FilterSelect value={statusFilter} options={statusOptions} onChange={(v) => setStatusFilter(v as TaskStatus | 'all')} />
+            <FilterSelect value={localStatusFilter} options={statusOptions} onChange={(v) => { setLocalStatusFilter(v as TaskStatus | 'all' | 'open'); clearNotificationsParam() }} />
             <FilterSelect value={priorityFilter} options={priorityOptions} onChange={(v) => setPriorityFilter(v as TaskPriority | 'all')} />
             <FilterSelect value={typeFilter} options={typeOptions} onChange={(v) => setTypeFilter(v as TaskType | 'all')} />
           </div>

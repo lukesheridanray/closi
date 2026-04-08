@@ -114,7 +114,7 @@ export default function PageHeader() {
 
             {/* Tasks / notifications */}
             <button
-              onClick={() => navigate('/tasks')}
+              onClick={() => navigate('/tasks?filter=notifications')}
               className="relative rounded-lg p-2 text-muted-foreground transition-colors hover:bg-page hover:text-heading"
               title={`${todayTasks} tasks today${overdueTasks > 0 ? `, ${overdueTasks} overdue` : ''}`}
             >
