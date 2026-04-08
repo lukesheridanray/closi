@@ -719,7 +719,7 @@ export interface Product {
 
 export const productsApi = {
   list: (params?: { search?: string; category?: string; is_active?: boolean }) =>
-    api.get<PaginatedResponse<Product>>('/products', { params: { page_size: 200, ...params } }).then((r) => r.data),
+    api.get<PaginatedResponse<Product>>('/products', { params: { page_size: 100, ...params } }).then((r) => r.data),
 
   get: (id: string) =>
     api.get<Product>(`/products/${id}`).then((r) => r.data),
