@@ -51,7 +51,7 @@ export type PaymentStatus = 'succeeded' | 'failed' | 'refunded' | 'pending'
 export const CONTRACT_STATUS_LABELS: Record<ContractStatus, string> = {
   active: 'Active',
   pending: 'Pending',
-  expired: 'Expired',
+  expired: 'Due for renewal',
   cancelled: 'Cancelled',
 }
 
@@ -91,5 +91,5 @@ export const SUBSCRIPTION_STATUS_LABELS: Record<SubscriptionStatus, string> = {
   past_due: 'Past Due',
   cancelled: 'Cancelled',
   paused: 'Paused',
-  expired: 'Expired',
+  expired: 'Due for renewal',
 }

@@ -39,7 +39,7 @@ const useContractStore = create<ContractState>((set, get) => ({
       })
       set({ contracts: data.items, loading: false })
     } catch (err) {
-      set({ loading: false, error: err instanceof Error ? err.message : 'Failed to fetch contracts' })
+      set({ loading: false, error: err instanceof Error ? err.message : 'Failed to fetch agreements' })
     }
   },
 

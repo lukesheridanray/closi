@@ -47,12 +47,15 @@ interface TaskState {
   updateTask: (taskId: string, updates: Partial<Task>) => Promise<void>
   completeTask: (taskId: string) => Promise<void>
   deleteTask: (taskId: string) => Promise<void>
+  calendarTasks: Task[]
+  fetchCalendarTasks: (from: string, to: string) => Promise<void>
 }
 
 // --- Store ---
 
 const useTaskStore = create<TaskState>((set, get) => ({
   tasks: [],
+  calendarTasks: [],
   selectedTaskId: null,
   search: '',
   statusFilter: 'all',
@@ -161,6 +164,19 @@ const useTaskStore = create<TaskState>((set, get) => ({
     set((state) => ({
       tasks: state.tasks.filter((t) => t.id !== taskId),
     }))
+  },
+
+  fetchCalendarTasks: async (from, to) => {
+    try {
+      const data = await tasksApi.list({
+        due_date_from: from,
+        due_date_to: to,
+        page_size: 100,
+      })
+      set({ calendarTasks: data.items })
+    } catch {
+      set({ calendarTasks: [] })
+    }
   },
 }))
 

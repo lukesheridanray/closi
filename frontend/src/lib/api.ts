@@ -1,13 +1,16 @@
 import axios from 'axios'
 import type { PaginatedResponse } from '@/types/api'
 import type { Contact, Activity } from '@/types/contact'
-import type { Deal, DealDetail, Pipeline, PipelineDetail, PipelineStage } from '@/types/pipeline'
+import type { Deal, DealDetail, PipelineDetail, PipelineStage } from '@/types/pipeline'
 import type { Task } from '@/types/task'
 import type { Quote } from '@/types/quote'
 import type { Contract, Payment, Subscription } from '@/types/contract'
 import type { Invoice } from '@/types/invoice'
 
-const API_BASE = import.meta.env.VITE_API_URL || '/api/v1'
+const rawApiBase = import.meta.env.VITE_API_URL?.replace(/\/$/, '')
+const API_BASE = rawApiBase
+  ? (rawApiBase.endsWith('/api/v1') ? rawApiBase : `${rawApiBase}/api/v1`)
+  : '/api/v1'
 
 const api = axios.create({
   baseURL: API_BASE,
@@ -190,6 +193,8 @@ export const tasksApi = {
     assigned_to?: string
     contact_id?: string
     deal_id?: string
+    due_date_from?: string
+    due_date_to?: string
     search?: string
     sort_by?: string
     sort_dir?: string
@@ -236,6 +241,12 @@ export const quotesApi = {
 
   accept: (id: string) =>
     api.post<Quote>(`/quotes/${id}/accept`).then((r) => r.data),
+
+  delete: (id: string) =>
+    api.delete(`/quotes/${id}`).then((r) => r.data),
+
+  send: (id: string) =>
+    api.post<Quote>(`/quotes/${id}/send`).then((r) => r.data),
 
   getPdf: (id: string) =>
     api.get(`/quotes/${id}/pdf`, { responseType: 'blob' }).then((r) => r.data),
@@ -485,6 +496,7 @@ export interface PaymentProfile {
   id: string
   contact_id: string
   external_customer_id: string | null
+  external_payment_id: string | null
   payment_method_type: string | null
   payment_method_last4: string | null
   payment_method_brand: string | null
@@ -558,6 +570,60 @@ export interface AuthnetStatus {
   retry_max_attempts: number | null
 }
 
+export interface HostedProfilePageSession {
+  token: string
+  url: string
+  customer_profile_id: string
+  environment: string
+}
+
+export interface BillingAccountRow {
+  contact_id: string
+  customer_name: string
+  company: string | null
+  email: string | null
+  phone: string | null
+  lead_source: string
+  contact_status: string
+  contract_id: string | null
+  contract_title: string | null
+  contract_status: string | null
+  has_billing_profile: boolean
+  has_card_on_file: boolean
+  payment_method_type: string | null
+  payment_method_last4: string | null
+  payment_method_brand: string | null
+  monthly_amount: number | null
+  subscription_status: string | null
+  next_billing_date: string | null
+  last_payment_date: string | null
+  last_payment_amount: number | null
+  last_payment_status: string | null
+  failed_payment_count: number
+  billing_flag: string
+  outstanding_balance: number
+  lifetime_revenue: number
+  updated_at: string
+}
+
+export interface BillingAccountListResponse {
+  items: BillingAccountRow[]
+  meta: PaginatedResponse<unknown>['meta']
+  total_mrr: number
+  past_due_count: number
+  missing_card_count: number
+}
+
+export const billingApi = {
+  listAccounts: (params?: {
+    page?: number
+    page_size?: number
+    search?: string
+    billing_flag?: string
+  }) =>
+    api.get<BillingAccountListResponse>('/billing/accounts', { params }).then((r) => r.data),
+}
+
 export const authnetApi = {
   getStatus: () =>
     api.get<AuthnetStatus>('/integrations/authnet/status').then((r) => r.data),
@@ -573,8 +639,17 @@ export const authnetApi = {
   disconnect: () =>
     api.delete('/integrations/authnet/disconnect').then((r) => r.data),
 
+  getCustomerProfile: (contactId: string) =>
+    api.get<PaymentProfile>(`/integrations/authnet/customer-profile/${contactId}`).then((r) => r.data),
+
+  syncCustomerProfile: (contactId: string) =>
+    api.post<PaymentProfile>(`/integrations/authnet/customer-profile/${contactId}/sync`).then((r) => r.data),
+
   createCustomer: (contactId: string) =>
     api.post<PaymentProfile>('/integrations/authnet/create-customer', { contact_id: contactId }).then((r) => r.data),
+
+  createHostedProfilePage: (data: { contact_id: string; action?: string; return_url?: string }) =>
+    api.post<HostedProfilePageSession>('/integrations/authnet/hosted-profile-page', data).then((r) => r.data),
 
   addPaymentProfile: (contactId: string, card: { card_number: string; expiration_date: string; card_code: string }) =>
     api.post<PaymentProfile>('/integrations/authnet/add-payment-profile', {
@@ -582,8 +657,14 @@ export const authnetApi = {
       ...card,
     }).then((r) => r.data),
 
+  addBankAccount: (contactId: string, bank: { routing_number: string; account_number: string; name_on_account: string; account_type?: string; echeck_type?: string }) =>
+    api.post<PaymentProfile>('/integrations/authnet/add-bank-account', {
+      contact_id: contactId,
+      ...bank,
+    }).then((r) => r.data),
+
   charge: (data: { contact_id: string; amount: number; description?: string; contract_id?: string }) =>
-    api.post<{ payment_id: string; amount: number; status: string }>('/integrations/authnet/charge', data).then((r) => r.data),
+    api.post<{ payment_id: string; amount: number; status: string; failure_code?: string | null; failure_message?: string | null }>('/integrations/authnet/charge', data).then((r) => r.data),
 
   createSubscription: (contractId: string) =>
     api.post<{ id: string; status: string; amount: number }>('/integrations/authnet/create-subscription', {
@@ -601,6 +682,23 @@ export const authnetApi = {
 
   getWebhookLogs: () =>
     api.get<WebhookLog[]>('/integrations/authnet/webhook-logs').then((r) => r.data),
+
+  reconcile: (dateFrom?: string, dateTo?: string) =>
+    api.post<{
+      date_from: string
+      date_to: string
+      total_gateway_transactions: number
+      total_local_payments: number
+      matched: number
+      mismatches: Array<{ trans_id: string; amount: number; local_status: string; gateway_status: string; corrected_to: string }>
+      missing_local: Array<{ trans_id: string; amount: number; gateway_status: string }>
+      missing_gateway: Array<{ trans_id: string; amount: number; local_status: string; contact_id: string }>
+      corrections_applied: number
+      reconciled_at: string
+    }>('/integrations/authnet/reconcile', {
+      date_from: dateFrom || undefined,
+      date_to: dateTo || undefined,
+    }).then((r) => r.data),
 }
 
 export default api

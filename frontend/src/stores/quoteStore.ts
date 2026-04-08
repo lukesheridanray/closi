@@ -30,6 +30,8 @@ interface QuoteState {
   updateQuote: (quoteId: string, updates: Partial<Quote>) => Promise<void>
   sendQuote: (quoteId: string) => Promise<void>
   acceptQuote: (quoteId: string) => Promise<void>
+  declineQuote: (quoteId: string) => Promise<void>
+  deleteQuote: (quoteId: string) => Promise<void>
 }
 
 const useQuoteStore = create<QuoteState>((set, get) => ({
@@ -94,8 +96,7 @@ const useQuoteStore = create<QuoteState>((set, get) => ({
   },
 
   sendQuote: async (quoteId) => {
-    // Send uses the update endpoint with status change
-    const updated = await quotesApi.update(quoteId, { status: 'sent' } as Partial<Quote>)
+    const updated = await quotesApi.send(quoteId)
     set((state) => ({
       quotes: state.quotes.map((q) => (q.id === quoteId ? updated : q)),
     }))
@@ -105,6 +106,20 @@ const useQuoteStore = create<QuoteState>((set, get) => ({
     const updated = await quotesApi.accept(quoteId)
     set((state) => ({
       quotes: state.quotes.map((q) => (q.id === quoteId ? updated : q)),
+    }))
+  },
+
+  declineQuote: async (quoteId) => {
+    const updated = await quotesApi.update(quoteId, { status: 'rejected' } as Partial<Quote>)
+    set((state) => ({
+      quotes: state.quotes.map((q) => (q.id === quoteId ? updated : q)),
+    }))
+  },
+
+  deleteQuote: async (quoteId) => {
+    await quotesApi.delete(quoteId)
+    set((state) => ({
+      quotes: state.quotes.filter((q) => q.id !== quoteId),
     }))
   },
 }))

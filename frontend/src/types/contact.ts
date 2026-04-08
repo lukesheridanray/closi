@@ -70,6 +70,11 @@ export type ActivityType =
   | 'deal_created'
   | 'stage_change'
   | 'quote_sent'
+  | 'payment_succeeded'
+  | 'payment_failed'
+  | 'payment_refunded'
+  | 'subscription_created'
+  | 'subscription_cancelled'
 
 export const LEAD_SOURCE_LABELS: Record<LeadSource, string> = {
   google_ads: 'Google Ads',
@@ -111,4 +116,9 @@ export const ACTIVITY_TYPE_LABELS: Record<ActivityType, string> = {
   deal_created: 'Deal Created',
   stage_change: 'Stage Change',
   quote_sent: 'Quote Sent',
+  payment_succeeded: 'Payment Succeeded',
+  payment_failed: 'Payment Failed',
+  payment_refunded: 'Payment Refunded',
+  subscription_created: 'Subscription Created',
+  subscription_cancelled: 'Subscription Cancelled',
 }

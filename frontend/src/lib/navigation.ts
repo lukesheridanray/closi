@@ -1,5 +1,6 @@
 import {
   LayoutDashboard,
+  CreditCard,
   Kanban,
   Users,
   CheckSquare,
@@ -20,16 +21,17 @@ export interface NavItem {
 }
 
 export const mainNavItems: NavItem[] = [
-  { label: 'Dashboard', path: '/', icon: LayoutDashboard },
-  { label: 'Pipeline', path: '/pipeline', icon: Kanban },
-  { label: 'Contacts', path: '/contacts', icon: Users },
-  { label: 'Tasks', path: '/tasks', icon: CheckSquare },
+  { label: 'Operations', path: '/', icon: LayoutDashboard },
+  { label: 'Sales Board', path: '/pipeline', icon: Kanban },
+  { label: 'Accounts', path: '/contacts', icon: Users },
+  { label: 'Follow-Up', path: '/tasks', icon: CheckSquare },
   { label: 'Calendar', path: '/calendar', icon: CalendarDays },
   { label: 'Quotes', path: '/quotes', icon: FileText },
-  { label: 'Contracts', path: '/contracts', icon: FileSignature },
+  { label: 'Agreements', path: '/contracts', icon: FileSignature },
+  { label: 'Billing', path: '/billing', icon: CreditCard },
   { label: 'Invoices', path: '/invoices', icon: Receipt },
   { label: 'Inventory', path: '/inventory', icon: Package },
-  { label: 'Reports', path: '/reports', icon: BarChart3 },
+  { label: 'Monitoring', path: '/reports', icon: BarChart3 },
 ]
 
 export const bottomNavItems: NavItem[] = [

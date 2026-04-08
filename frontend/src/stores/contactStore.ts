@@ -24,6 +24,7 @@ interface ContactState {
   contacts: Contact[]
   activities: Activity[]
   selectedContactId: string | null
+  selectedContact: Contact | null
   search: string
   sourceFilter: LeadSource | 'all'
   statusFilter: ContactStatus | 'all'
@@ -38,6 +39,7 @@ interface ContactState {
 
   // Actions
   fetchContacts: () => Promise<void>
+  fetchContactById: (contactId: string) => Promise<Contact | null>
   fetchActivities: (contactId: string) => Promise<void>
   selectContact: (id: string | null) => void
   setSearch: (q: string) => void
@@ -57,11 +59,12 @@ const useContactStore = create<ContactState>((set, get) => ({
   contacts: [],
   activities: [],
   selectedContactId: null,
+  selectedContact: null,
   search: '',
   sourceFilter: 'all',
   statusFilter: 'all',
-  sortField: 'name',
-  sortDir: 'asc',
+  sortField: 'created_at',
+  sortDir: 'desc',
   page: 1,
   pageSize: 10,
   totalCount: 0,
@@ -84,12 +87,31 @@ const useContactStore = create<ContactState>((set, get) => ({
       })
       set({
         contacts: data.items,
+        selectedContact: get().selectedContactId
+          ? data.items.find((contact) => contact.id === get().selectedContactId) ?? get().selectedContact
+          : null,
         totalCount: data.meta.total_count,
         totalPages: data.meta.total_pages,
         loading: false,
       })
     } catch (err) {
       set({ loading: false, error: err instanceof Error ? err.message : 'Failed to fetch contacts' })
+    }
+  },
+
+  fetchContactById: async (contactId) => {
+    try {
+      const contact = await contactsApi.get(contactId)
+      set((state) => ({
+        selectedContactId: contactId,
+        selectedContact: contact,
+        contacts: state.contacts.some((existing) => existing.id === contact.id)
+          ? state.contacts.map((existing) => existing.id === contact.id ? contact : existing)
+          : [contact, ...state.contacts],
+      }))
+      return contact
+    } catch {
+      return null
     }
   },
 
@@ -102,7 +124,12 @@ const useContactStore = create<ContactState>((set, get) => ({
     }
   },
 
-  selectContact: (id) => set({ selectedContactId: id }),
+  selectContact: (id) => set((state) => ({
+    selectedContactId: id,
+    selectedContact: id
+      ? state.contacts.find((contact) => contact.id === id) ?? state.selectedContact
+      : null,
+  })),
 
   setSearch: (q) => {
     set({ search: q, page: 1 })
@@ -144,6 +171,7 @@ const useContactStore = create<ContactState>((set, get) => ({
     const contact = await contactsApi.update(id, updates)
     set((state) => ({
       contacts: state.contacts.map((c) => (c.id === id ? contact : c)),
+      selectedContact: state.selectedContactId === id ? contact : state.selectedContact,
     }))
     return contact
   },

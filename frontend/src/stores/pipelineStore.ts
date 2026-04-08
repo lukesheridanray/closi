@@ -11,11 +11,14 @@ interface PipelineState {
   stageHistory: StageHistory[]
   activePipelineId: string | null
   selectedDealId: string | null
+  selectedDeal: Deal | null
+  selectedDealContact: Contact | null
   loading: boolean
   error: string | null
 
   fetchPipelines: () => Promise<void>
   fetchDeals: (pipelineId?: string) => Promise<void>
+  fetchDealById: (dealId: string) => Promise<Deal | null>
   selectDeal: (dealId: string | null) => void
   moveDeal: (dealId: string, toStageId: string) => Promise<void>
   createDeal: (data: Partial<Deal>) => Promise<Deal>
@@ -34,6 +37,8 @@ const usePipelineStore = create<PipelineState>((set, get) => ({
   stageHistory: [],
   activePipelineId: null,
   selectedDealId: null,
+  selectedDeal: null,
+  selectedDealContact: null,
   loading: false,
   error: null,
 
@@ -61,13 +66,51 @@ const usePipelineStore = create<PipelineState>((set, get) => ({
         dealsApi.list({ pipeline_id: pid, page_size: 100 }),
         contactsApi.list({ page_size: 100 }),
       ])
-      set({ deals: dealData.items, contacts: contactData.items, loading: false })
+      set((state) => ({
+        deals: dealData.items,
+        contacts: contactData.items,
+        selectedDeal: state.selectedDealId
+          ? dealData.items.find((deal) => deal.id === state.selectedDealId) ?? state.selectedDeal
+          : null,
+        selectedDealContact: state.selectedDealId && state.selectedDeal
+          ? contactData.items.find((contact) => contact.id === state.selectedDeal?.contact_id) ?? state.selectedDealContact
+          : null,
+        loading: false,
+      }))
     } catch (err) {
       set({ loading: false, error: err instanceof Error ? err.message : 'Failed to fetch deals' })
     }
   },
 
-  selectDeal: (dealId) => set({ selectedDealId: dealId }),
+  fetchDealById: async (dealId) => {
+    try {
+      const deal = await dealsApi.get(dealId)
+      const contact = await contactsApi.get(deal.contact_id)
+      set((state) => ({
+        selectedDealId: dealId,
+        selectedDeal: deal,
+        selectedDealContact: contact,
+        activePipelineId: deal.pipeline_id,
+        deals: state.deals.some((existing) => existing.id === deal.id)
+          ? state.deals.map((existing) => existing.id === deal.id ? deal : existing)
+          : [deal, ...state.deals],
+        contacts: state.contacts.some((existing) => existing.id === contact.id)
+          ? state.contacts.map((existing) => existing.id === contact.id ? contact : existing)
+          : [contact, ...state.contacts],
+      }))
+      return deal
+    } catch {
+      return null
+    }
+  },
+
+  selectDeal: (dealId) => set((state) => ({
+    selectedDealId: dealId,
+    selectedDeal: dealId ? state.deals.find((deal) => deal.id === dealId) ?? state.selectedDeal : null,
+    selectedDealContact: dealId && (state.deals.find((deal) => deal.id === dealId) ?? state.selectedDeal)
+      ? state.contacts.find((contact) => contact.id === (state.deals.find((deal) => deal.id === dealId) ?? state.selectedDeal)?.contact_id) ?? state.selectedDealContact
+      : null,
+  })),
 
   moveDeal: async (dealId, toStageId) => {
     const deal = get().deals.find((d) => d.id === dealId)
@@ -78,6 +121,9 @@ const usePipelineStore = create<PipelineState>((set, get) => ({
       deals: state.deals.map((d) =>
         d.id === dealId ? { ...d, stage_id: toStageId, updated_at: new Date().toISOString() } : d,
       ),
+      selectedDeal: state.selectedDeal?.id === dealId
+        ? { ...state.selectedDeal, stage_id: toStageId, updated_at: new Date().toISOString() }
+        : state.selectedDeal,
     }))
 
     try {
@@ -88,6 +134,9 @@ const usePipelineStore = create<PipelineState>((set, get) => ({
         deals: state.deals.map((d) =>
           d.id === dealId ? { ...d, stage_id: deal.stage_id } : d,
         ),
+        selectedDeal: state.selectedDeal?.id === dealId
+          ? { ...state.selectedDeal, stage_id: deal.stage_id }
+          : state.selectedDeal,
       }))
     }
   },
