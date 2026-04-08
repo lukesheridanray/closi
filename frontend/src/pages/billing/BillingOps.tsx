@@ -396,7 +396,9 @@ export default function BillingOps() {
                               })
                               await fetchInvoices()
                               void loadAccounts()
-                            } catch {} finally { setSendingInvoice(null) }
+                            } catch (err) {
+                              setError(err instanceof Error ? err.message : 'Charge failed')
+                            } finally { setSendingInvoice(null) }
                           }}
                           disabled={sendingInvoice === inv.id}
                           className="rounded-md bg-primary px-2.5 py-1 text-[11px] font-medium text-white hover:bg-primary-hover disabled:opacity-50"

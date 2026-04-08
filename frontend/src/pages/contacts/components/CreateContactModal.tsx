@@ -41,6 +41,7 @@ export default function CreateContactModal({ open, onClose }: CreateContactModal
     }
   }, [pipelineStages, pipelineStageId])
 
+  const [error, setError] = useState<string | null>(null)
   const [form, setForm] = useState({
     first_name: '',
     last_name: '',
@@ -58,6 +59,7 @@ export default function CreateContactModal({ open, onClose }: CreateContactModal
     e.preventDefault()
     if (!form.first_name || !form.last_name) return
     setSaving(true)
+    setError(null)
     try {
       const contact = await createContact({
         first_name: form.first_name,
@@ -88,8 +90,8 @@ export default function CreateContactModal({ open, onClose }: CreateContactModal
       setSkipPipeline(false)
       setDealTitle('')
       onClose()
-    } catch {
-      // error handled by store
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create contact')
     } finally {
       setSaving(false)
     }
@@ -101,6 +103,11 @@ export default function CreateContactModal({ open, onClose }: CreateContactModal
   return (
     <SlideOutPanel open={open} onClose={onClose} title="Add Lead" width="md">
       <form onSubmit={handleSubmit} className="space-y-5">
+        {error && (
+          <div className="rounded-lg border border-danger/20 bg-danger/5 px-3 py-2 text-xs text-danger">
+            {error}
+          </div>
+        )}
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className={labelClass}>First Name *</label>
