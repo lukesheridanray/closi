@@ -3,7 +3,7 @@ Deal service -- CRUD, stage transitions with history logging.
 """
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -238,7 +238,39 @@ async def move_stage(
     db.add(history)
     await db.flush()
 
+    # === Stage-based automations ===
+    stage_name = target_stage.name.lower().strip()
+
+    # "Installed" → mark contact as customer, auto-charge equipment, start monitoring
+    if target_stage.is_won_stage or stage_name == "installed":
+        await _handle_installed(db, org_id, deal)
+
     return deal
+
+
+async def _handle_installed(db: AsyncSession, org_id: uuid.UUID, deal: Deal) -> None:
+    """When a deal moves to Installed: mark contact as customer and trigger billing."""
+    import logging
+    from app.models.contact import Contact
+
+    logger = logging.getLogger(__name__)
+
+    # Mark contact as customer
+    contact_result = await db.execute(
+        select(Contact).where(Contact.id == deal.contact_id, Contact.organization_id == org_id)
+    )
+    contact = contact_result.scalar_one_or_none()
+    if contact and contact.status != "customer":
+        contact.status = "customer"
+        contact.updated_at = datetime.utcnow()
+        logger.info(f"Contact {contact.id} marked as customer (deal installed)")
+
+    # Auto-charge equipment via the install-complete trigger
+    from app.services.task_service import _trigger_install_complete_charge
+    try:
+        await _trigger_install_complete_charge(db, org_id, deal.contact_id)
+    except Exception as e:
+        logger.error(f"Auto-charge on install failed for deal {deal.id}: {e}")
 
 
 # ── Soft Delete ──────────────────────────────────────

@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.config import get_settings
 from app.api import (
     auth as auth_api,
+    billing as billing_api,
     contacts as contacts_api,
     deals as deals_api,
     pipelines as pipelines_api,
@@ -49,6 +50,7 @@ async def health_check():
 
 # ── API Routers ──────────────────────────────────────
 app.include_router(auth_api.router, prefix=settings.api_prefix)
+app.include_router(billing_api.router, prefix=settings.api_prefix)
 app.include_router(contacts_api.router, prefix=settings.api_prefix)
 app.include_router(deals_api.router, prefix=settings.api_prefix)
 app.include_router(pipelines_api.router, prefix=settings.api_prefix)

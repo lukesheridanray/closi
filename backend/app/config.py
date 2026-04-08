@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     app_name: str = "LSRV CRM"
     debug: bool = False
     api_prefix: str = "/api/v1"
+    app_base_url: str = "http://localhost:5173"
 
     # Database
     database_url: str = "postgresql+asyncpg://lsrv:lsrv@localhost:5432/lsrv"
@@ -22,7 +23,7 @@ class Settings(BaseSettings):
     refresh_token_expire_days: int = 30
 
     # CORS - comma-separated string (e.g. "https://foo.com,https://bar.com" or "*")
-    cors_origins: str = "http://localhost:5173"
+    cors_origins: str = "http://localhost:5173,http://localhost:5174"
 
     @property
     def cors_origins_list(self) -> list[str]:

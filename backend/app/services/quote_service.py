@@ -124,6 +124,78 @@ async def update_quote(
     return quote
 
 
+# ── Send (email to customer) ────────────────────────
+
+
+async def send_quote(
+    db: AsyncSession,
+    org_id: uuid.UUID,
+    quote_id: uuid.UUID,
+) -> Quote:
+    """Mark quote as sent and email it to the customer."""
+    import logging
+    from app.models.contact import Contact
+    from app.services import notification_service
+
+    logger = logging.getLogger(__name__)
+    quote = await get_quote(db, org_id, quote_id)
+
+    if quote.status not in ("draft", "sent"):
+        raise ValueError(f"Cannot send quote with status '{quote.status}'.")
+
+    quote.status = "sent"
+    quote.sent_at = datetime.utcnow()
+    quote.updated_at = datetime.utcnow()
+
+    # Look up contact email
+    contact_result = await db.execute(
+        select(Contact).where(Contact.id == quote.contact_id)
+    )
+    contact = contact_result.scalar_one_or_none()
+
+    if contact and contact.email:
+        from app.models.organization import Organization
+        org_result = await db.execute(
+            select(Organization).where(Organization.id == org_id)
+        )
+        org = org_result.scalar_one_or_none()
+        org_name = org.name if org else "LSRV CRM"
+        contact_name = f"{contact.first_name or ''} {contact.last_name or ''}".strip() or "Customer"
+
+        from app.api.quotes import get_quote_response_url
+        accept_url = get_quote_response_url(quote.id, org_id, "accept")
+        decline_url = get_quote_response_url(quote.id, org_id, "decline")
+
+        try:
+            await notification_service.send_quote_email(
+                to=contact.email,
+                contact_name=contact_name,
+                quote_title=quote.title,
+                org_name=org_name,
+                equipment_lines=quote.equipment_lines or [],
+                equipment_total=float(quote.equipment_total or 0),
+                monthly_amount=float(quote.monthly_monitoring_amount or 0),
+                notes=quote.notes,
+                accept_url=accept_url,
+                decline_url=decline_url,
+            )
+        except Exception as e:
+            logger.error(f"Failed to send quote email for {quote.id}: {e}")
+
+    # Log activity
+    activity = Activity(
+        organization_id=org_id,
+        contact_id=quote.contact_id,
+        type="quote_sent",
+        subject=f"Quote sent: {quote.title}",
+        description=f"Equipment: ${float(quote.equipment_total):.2f}, Monitoring: ${float(quote.monthly_monitoring_amount):.2f}/mo",
+        performed_at=datetime.utcnow(),
+    )
+    db.add(activity)
+    await db.flush()
+    return quote
+
+
 # ── Accept (convert to contract) ─────────────────────
 
 
@@ -165,18 +237,38 @@ async def accept_quote(
 
     # Create subscription for recurring billing
     if quote.monthly_monitoring_amount and quote.monthly_monitoring_amount > 0:
-        subscription = Subscription(
-            organization_id=org_id,
-            contract_id=contract.id,
-            contact_id=quote.contact_id,
-            status="active",
-            amount=quote.monthly_monitoring_amount,
-            currency="usd",
-            billing_interval="monthly",
-            billing_interval_count=1,
-        )
-        db.add(subscription)
-        await db.flush()
+        # Try to create a real ARB subscription at Authorize.net
+        arb_created = False
+        try:
+            from app.integrations import authnet_service
+            arb_sub = await authnet_service.create_subscription(
+                db, org_id, contract.id
+            )
+            arb_created = True
+            import logging
+            logging.getLogger(__name__).info(
+                f"ARB subscription created for contract {contract.id}: {arb_sub.external_subscription_id}"
+            )
+        except Exception as e:
+            # ARB failed (no card on file, no authnet config, etc.)
+            # Create local subscription record anyway so the UI shows monitoring is set up
+            import logging
+            logging.getLogger(__name__).warning(
+                f"Could not create ARB subscription for contract {contract.id}: {e}. "
+                f"Local subscription created — ARB needs manual setup."
+            )
+            subscription = Subscription(
+                organization_id=org_id,
+                contract_id=contract.id,
+                contact_id=quote.contact_id,
+                status="active",
+                amount=quote.monthly_monitoring_amount,
+                currency="usd",
+                billing_interval="monthly",
+                billing_interval_count=1,
+            )
+            db.add(subscription)
+            await db.flush()
 
     # Move deal to won stage if deal exists
     if quote.deal_id:
@@ -188,6 +280,10 @@ async def accept_quote(
         )
         deal = deal_result.scalar_one_or_none()
         if deal:
+            # Update deal value from the quote
+            deal.estimated_value = float(quote.total_contract_value or quote.equipment_total or 0)
+            deal.updated_at = datetime.utcnow()
+
             # Find won stage in the deal's pipeline
             won_stage_result = await db.execute(
                 select(PipelineStage).where(

@@ -1,4 +1,5 @@
 from celery import Celery
+from celery.schedules import crontab
 from app.config import get_settings
 
 settings = get_settings()
@@ -18,6 +19,20 @@ celery.conf.update(
     task_track_started=True,
     task_acks_late=True,
     worker_prefetch_multiplier=1,
+    beat_schedule={
+        "daily-reconciliation": {
+            "task": "billing.daily_reconciliation",
+            "schedule": crontab(hour=2, minute=0),  # 2:00 AM UTC daily
+        },
+        "daily-subscription-invoices": {
+            "task": "billing.process_subscription_invoices",
+            "schedule": crontab(hour=6, minute=0),  # 6:00 AM UTC daily
+        },
+        "daily-overdue-detection": {
+            "task": "billing.mark_overdue_invoices",
+            "schedule": crontab(hour=7, minute=0),  # 7:00 AM UTC daily
+        },
+    },
 )
 
 # Auto-discover tasks in the tasks/ directory

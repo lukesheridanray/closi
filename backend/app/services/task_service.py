@@ -31,6 +31,8 @@ async def list_tasks(
     status: str | None = None,
     assigned_to: uuid.UUID | None = None,
     due_date: date | None = None,
+    due_date_from: date | None = None,
+    due_date_to: date | None = None,
     priority: str | None = None,
     task_type: str | None = None,
     page: int = 1,
@@ -47,6 +49,10 @@ async def list_tasks(
         base = base.where(Task.assigned_to == assigned_to)
     if due_date:
         base = base.where(Task.due_date == due_date)
+    if due_date_from:
+        base = base.where(Task.due_date >= due_date_from)
+    if due_date_to:
+        base = base.where(Task.due_date <= due_date_to)
     if priority:
         base = base.where(Task.priority == priority)
     if task_type:
@@ -182,7 +188,94 @@ async def complete_task(
         db.add(activity)
         await db.flush()
 
+    # Auto-charge trigger: when an install task is completed,
+    # charge the card on file for accepted quote equipment total
+    if task.type == "install" and task.contact_id:
+        await _trigger_install_complete_charge(db, org_id, task.contact_id)
+
     return task
+
+
+async def _trigger_install_complete_charge(
+    db: AsyncSession,
+    org_id: uuid.UUID,
+    contact_id: uuid.UUID,
+) -> None:
+    """When an install is marked complete, auto-charge the equipment amount
+    from the accepted quote and start monitoring if quoted."""
+    import logging
+    from app.models.quote import Quote
+    from app.models.payment import Payment
+
+    logger = logging.getLogger(__name__)
+
+    # Find accepted quotes for this contact with equipment charges
+    result = await db.execute(
+        select(Quote).where(
+            Quote.organization_id == org_id,
+            Quote.contact_id == contact_id,
+            Quote.status == "accepted",
+            Quote.equipment_total > 0,
+        )
+    )
+    accepted_quotes = list(result.scalars().all())
+    if not accepted_quotes:
+        return
+
+    # Calculate total equipment quoted vs already paid
+    total_equipment_quoted = sum(float(q.equipment_total) for q in accepted_quotes)
+
+    payments_result = await db.execute(
+        select(Payment).where(
+            Payment.organization_id == org_id,
+            Payment.contact_id == contact_id,
+            Payment.status == "succeeded",
+        )
+    )
+    total_paid = sum(float(p.amount) for p in payments_result.scalars().all())
+    equipment_owed = total_equipment_quoted - total_paid
+
+    if equipment_owed <= 0:
+        logger.info(f"Install complete for contact {contact_id}: equipment already paid")
+        return
+
+    # Auto-charge via Authorize.net
+    try:
+        from app.integrations import authnet_service
+
+        payment = await authnet_service.charge_customer(
+            db, org_id, contact_id,
+            amount=round(equipment_owed, 2),
+            description="Equipment & installation charge (auto-billed on install completion)",
+        )
+        if payment.status == "succeeded":
+            logger.info(f"Install complete auto-charge succeeded: ${equipment_owed:.2f} for contact {contact_id}")
+        else:
+            logger.warning(f"Install complete auto-charge failed for contact {contact_id}: {payment.failure_message}")
+            # Create a follow-up task for failed charge
+            failed_task = Task(
+                organization_id=org_id,
+                contact_id=contact_id,
+                title=f"Failed auto-charge: ${equipment_owed:.2f} equipment",
+                description=f"Install was marked complete but the auto-charge failed: {payment.failure_message or 'Unknown reason'}. Please charge manually.",
+                type="follow_up",
+                priority="urgent",
+                status="pending",
+            )
+            db.add(failed_task)
+    except Exception as e:
+        logger.error(f"Install complete auto-charge error for contact {contact_id}: {e}")
+        # Create a follow-up task so billing isn't lost
+        error_task = Task(
+            organization_id=org_id,
+            contact_id=contact_id,
+            title=f"Billing needed: ${equipment_owed:.2f} equipment",
+            description=f"Install was marked complete but auto-charge failed: {e}. No card on file or billing not configured. Please charge manually.",
+            type="follow_up",
+            priority="urgent",
+            status="pending",
+        )
+        db.add(error_task)
 
 
 # ── Soft Delete ──────────────────────────────────────

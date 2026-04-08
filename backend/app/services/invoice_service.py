@@ -1,7 +1,9 @@
 """
-Invoice service -- CRUD, PDF generation stub, send email, overdue detection.
+Invoice service -- CRUD, PDF generation stub, send email, overdue detection,
+and automatic invoice creation for every payment.
 """
 
+import logging
 import uuid
 from datetime import date, datetime
 
@@ -9,6 +11,7 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.invoice import Invoice
+from app.models.contact import Contact
 from app.models.payment import Payment
 from app.schemas.invoices import (
     InvoiceCreate,
@@ -17,6 +20,127 @@ from app.schemas.invoices import (
     InvoiceListResponse,
 )
 from app.schemas.common import PaginationMeta
+
+logger = logging.getLogger(__name__)
+
+
+# ── Auto Invoice Number ─────────────────────────────
+
+
+async def _next_invoice_number(db: AsyncSession, org_id: uuid.UUID) -> str:
+    """Generate the next sequential invoice number for the org (INV-YYYY-NNNN).
+
+    Uses SELECT ... FOR UPDATE on the org row to serialize concurrent access.
+    """
+    from app.models.organization import Organization
+
+    year = date.today().year
+    prefix = f"INV-{year}-"
+
+    # Lock the org row to prevent concurrent invoice number generation
+    await db.execute(
+        select(Organization.id)
+        .where(Organization.id == org_id)
+        .with_for_update()
+    )
+
+    result = await db.execute(
+        select(func.max(Invoice.invoice_number))
+        .where(
+            Invoice.organization_id == org_id,
+            Invoice.invoice_number.like(f"{prefix}%"),
+        )
+    )
+    last = result.scalar_one_or_none()
+    if last:
+        try:
+            seq = int(last.replace(prefix, "")) + 1
+        except ValueError:
+            seq = 1
+    else:
+        seq = 1
+    return f"{prefix}{seq:04d}"
+
+
+# ── Create Invoice for Payment ──────────────────────
+
+
+async def create_invoice_for_payment(
+    db: AsyncSession,
+    payment: Payment,
+    *,
+    description: str = "Payment",
+    subscription_id: uuid.UUID | None = None,
+    period_start: date | None = None,
+    period_end: date | None = None,
+) -> Invoice:
+    """Create a paid invoice linked to a payment and email it to the customer.
+
+    This is the core function that ensures no charge happens silently.
+    Every successful payment gets an invoice record + email receipt.
+    """
+    from app.services import notification_service
+
+    invoice_number = await _next_invoice_number(db, payment.organization_id)
+
+    invoice = Invoice(
+        organization_id=payment.organization_id,
+        contact_id=payment.contact_id,
+        contract_id=payment.contract_id,
+        subscription_id=subscription_id,
+        provider_config_id=payment.provider_config_id,
+        invoice_number=invoice_number,
+        status="paid",
+        invoice_date=payment.payment_date,
+        due_date=payment.payment_date,
+        period_start=period_start,
+        period_end=period_end,
+        subtotal=float(payment.amount),
+        tax_amount=0,
+        total=float(payment.amount),
+        amount_paid=float(payment.amount),
+        amount_due=0,
+        currency=payment.currency or "usd",
+        line_items=[{
+            "description": description,
+            "quantity": 1,
+            "unit_price": float(payment.amount),
+            "amount": float(payment.amount),
+        }],
+        paid_at=datetime.utcnow(),
+        sent_at=datetime.utcnow(),
+    )
+    db.add(invoice)
+    await db.flush()
+
+    # Link the payment to the invoice
+    payment.invoice_id = invoice.id
+
+    # Send receipt email to customer
+    contact_result = await db.execute(
+        select(Contact).where(Contact.id == payment.contact_id)
+    )
+    contact = contact_result.scalar_one_or_none()
+
+    if contact and contact.email:
+        method_info = ""
+        if payment.payment_method_last4:
+            method_info = f" (card ending {payment.payment_method_last4})"
+        contact_name = f"{contact.first_name or ''} {contact.last_name or ''}".strip() or "Customer"
+        try:
+            await notification_service.send_payment_receipt_email(
+                to=contact.email,
+                contact_name=contact_name,
+                invoice_number=invoice_number,
+                amount=float(payment.amount),
+                description=description,
+                payment_method=method_info,
+                payment_date=str(payment.payment_date),
+            )
+        except Exception as e:
+            logger.error(f"Failed to send receipt email for {invoice_number}: {e}")
+
+    return invoice
 
 
 # ── List ─────────────────────────────────────────────
@@ -143,7 +267,23 @@ async def send_invoice(
     invoice.updated_at = datetime.utcnow()
     await db.flush()
 
-    # TODO: Call notification_service.send_invoice_email()
+    # Send the invoice email
+    contact_result = await db.execute(
+        select(Contact).where(Contact.id == invoice.contact_id)
+    )
+    contact = contact_result.scalar_one_or_none()
+    if contact and contact.email:
+        from app.services import notification_service
+        try:
+            await notification_service.send_invoice_email(
+                to=contact.email,
+                invoice_number=invoice.invoice_number,
+                amount=float(invoice.total),
+                due_date=str(invoice.due_date),
+            )
+        except Exception as e:
+            logger.error(f"Failed to send invoice email for {invoice.invoice_number}: {e}")
+
     return invoice
 
 
