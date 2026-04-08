@@ -21,6 +21,7 @@ const OrgSettings = lazy(() => import('@/pages/settings/OrgSettings'))
 const PaymentSettings = lazy(() => import('@/pages/settings/PaymentSettings'))
 const IntegrationSettings = lazy(() => import('@/pages/settings/IntegrationSettings'))
 const TeamSettings = lazy(() => import('@/pages/settings/TeamSettings'))
+const ProductCatalog = lazy(() => import('@/pages/settings/ProductCatalog'))
 
 function PageLoader() {
   return (
@@ -49,6 +50,7 @@ function App() {
             <Route path="integrations" element={<Suspense fallback={<PageLoader />}><IntegrationSettings /></Suspense>} />
             <Route path="payments" element={<Suspense fallback={<PageLoader />}><PaymentSettings /></Suspense>} />
             <Route path="team" element={<Suspense fallback={<PageLoader />}><TeamSettings /></Suspense>} />
+            <Route path="products" element={<Suspense fallback={<PageLoader />}><ProductCatalog /></Suspense>} />
           </Route>
         </Route>
       </Route>

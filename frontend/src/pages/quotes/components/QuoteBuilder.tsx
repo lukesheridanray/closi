@@ -1,9 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { X, Plus, Trash2 } from 'lucide-react'
 import useQuoteStore from '@/stores/quoteStore'
 import useContactStore from '@/stores/contactStore'
 import usePipelineStore from '@/stores/pipelineStore'
 import { useEntityLabels } from '@/hooks/useEntityLabels'
+import { productsApi } from '@/lib/api'
+import type { Product } from '@/lib/api'
 import type { QuoteLine } from '@/types/quote'
 
 const currencyFormat = new Intl.NumberFormat('en-US', {
@@ -30,7 +32,16 @@ export default function QuoteBuilder({ onClose, defaultContactId, defaultDealId 
   const [dealId, setDealId] = useState(defaultDealId ?? '')
   const [notes, setNotes] = useState('')
 
-  // Equipment lines (extended with discount)
+  // Product catalog
+  const [products, setProducts] = useState<Product[]>([])
+  useEffect(() => {
+    productsApi.list({ is_active: true }).then((r) => setProducts(r.items)).catch(() => {})
+  }, [])
+
+  const equipmentProducts = useMemo(() => products.filter((p) => p.category !== 'monitoring'), [products])
+  const monitoringProducts = useMemo(() => products.filter((p) => p.category === 'monitoring'), [products])
+
+  // Equipment lines
   type LineItem = QuoteLine & { discount: number }
   const [lines, setLines] = useState<LineItem[]>([
     { id: '1', product_name: '', quantity: 1, unit_price: 0, discount: 0, total: 0 },
@@ -53,6 +64,17 @@ export default function QuoteBuilder({ onClose, defaultContactId, defaultDealId 
     setLines([...lines, { id: String(Date.now()), product_name: '', quantity: 1, unit_price: 0, discount: 0, total: 0 }])
   }
 
+  function addProductLine(product: Product) {
+    setLines([...lines, {
+      id: String(Date.now()),
+      product_name: product.name,
+      quantity: 1,
+      unit_price: product.retail_price,
+      discount: 0,
+      total: product.retail_price,
+    }])
+  }
+
   function removeLine(id: string) {
     if (lines.length <= 1) return
     setLines(lines.filter((l) => l.id !== id))
@@ -69,6 +91,22 @@ export default function QuoteBuilder({ onClose, defaultContactId, defaultDealId 
       }
       return updated
     }))
+  }
+
+  function selectProduct(lineId: string, productId: string) {
+    const product = products.find((p) => p.id === productId)
+    if (!product) return
+    setLines(lines.map((l) => {
+      if (l.id !== lineId) return l
+      const subtotal = l.quantity * product.retail_price
+      const discountAmt = subtotal * (l.discount / 100)
+      return { ...l, product_name: product.name, unit_price: product.retail_price, total: subtotal - discountAmt }
+    }))
+  }
+
+  function selectMonitoringPlan(productId: string) {
+    const plan = monitoringProducts.find((p) => p.id === productId)
+    if (plan) setMonthlyAmount(plan.retail_price)
   }
 
   const regularTotal = lines.reduce((sum, l) => sum + (Number(l.quantity) * Number(l.unit_price)), 0)
@@ -111,6 +149,23 @@ export default function QuoteBuilder({ onClose, defaultContactId, defaultDealId 
     e.preventDefault()
     createQuote(false)
   }
+
+  // Group equipment products by category for the picker
+  const categoryLabels: Record<string, string> = {
+    panel: 'Panels & Controllers',
+    sensor: 'Sensors',
+    camera: 'Cameras',
+    smart_home: 'Smart Home',
+    service: 'Services',
+  }
+  const groupedProducts = useMemo(() => {
+    const groups: Record<string, Product[]> = {}
+    equipmentProducts.forEach((p) => {
+      if (!groups[p.category]) groups[p.category] = []
+      groups[p.category].push(p)
+    })
+    return groups
+  }, [equipmentProducts])
 
   return (
     <>
@@ -166,6 +221,41 @@ export default function QuoteBuilder({ onClose, defaultContactId, defaultDealId 
               </div>
             </div>
 
+            {/* Quick add from catalog */}
+            {equipmentProducts.length > 0 && (
+              <div>
+                <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Add from Catalog</h4>
+                <div className="flex flex-wrap gap-1.5">
+                  {Object.entries(groupedProducts).map(([cat, prods]) => (
+                    <div key={cat} className="relative group">
+                      <button
+                        type="button"
+                        className="rounded-md border border-border px-2.5 py-1 text-[11px] font-medium text-heading hover:bg-page"
+                      >
+                        {categoryLabels[cat] ?? cat}
+                      </button>
+                      <div className="absolute left-0 top-full z-20 mt-1 hidden w-64 rounded-lg border border-border bg-white shadow-dropdown group-hover:block">
+                        {prods.map((p) => (
+                          <button
+                            key={p.id}
+                            type="button"
+                            onClick={() => addProductLine(p)}
+                            className="flex w-full items-center justify-between px-3 py-2 text-left text-xs hover:bg-page"
+                          >
+                            <div>
+                              <p className="font-medium text-heading">{p.name}</p>
+                              {p.sku && <p className="text-[10px] text-muted-foreground">{p.sku}</p>}
+                            </div>
+                            <span className="font-medium text-primary">{currencyFormat.format(p.retail_price)}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Equipment line items */}
             <div>
               <h4 className="mb-3 text-sm font-semibold text-heading">Equipment & Installation</h4>
@@ -176,7 +266,7 @@ export default function QuoteBuilder({ onClose, defaultContactId, defaultDealId 
                       <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Product</th>
                       <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-16">Qty</th>
                       <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-24">Price</th>
-                      <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-20">Discount</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-20">Disc.</th>
                       <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground w-24">Total</th>
                       <th className="w-10" />
                     </tr>
@@ -185,13 +275,32 @@ export default function QuoteBuilder({ onClose, defaultContactId, defaultDealId 
                     {lines.map((line) => (
                       <tr key={line.id} className="border-t border-border">
                         <td className="px-3 py-2">
-                          <input
-                            type="text"
-                            value={line.product_name}
-                            onChange={(e) => updateLine(line.id, 'product_name', e.target.value)}
-                            placeholder="Product name"
-                            className="w-full bg-transparent text-sm text-heading outline-none placeholder:text-placeholder"
-                          />
+                          {equipmentProducts.length > 0 ? (
+                            <select
+                              value={equipmentProducts.find((p) => p.name === line.product_name)?.id ?? '_custom'}
+                              onChange={(e) => {
+                                if (e.target.value === '_custom') {
+                                  updateLine(line.id, 'product_name', '')
+                                } else {
+                                  selectProduct(line.id, e.target.value)
+                                }
+                              }}
+                              className="w-full bg-transparent text-sm text-heading outline-none"
+                            >
+                              <option value="_custom">{line.product_name || 'Select product...'}</option>
+                              {equipmentProducts.map((p) => (
+                                <option key={p.id} value={p.id}>{p.name} - {currencyFormat.format(p.retail_price)}</option>
+                              ))}
+                            </select>
+                          ) : (
+                            <input
+                              type="text"
+                              value={line.product_name}
+                              onChange={(e) => updateLine(line.id, 'product_name', e.target.value)}
+                              placeholder="Product name"
+                              className="w-full bg-transparent text-sm text-heading outline-none placeholder:text-placeholder"
+                            />
+                          )}
                         </td>
                         <td className="px-3 py-2">
                           <input
@@ -238,11 +347,7 @@ export default function QuoteBuilder({ onClose, defaultContactId, defaultDealId 
                           </span>
                         </td>
                         <td className="px-2 py-2">
-                          <button
-                            type="button"
-                            onClick={() => removeLine(line.id)}
-                            className="rounded p-1 text-muted-foreground hover:text-danger"
-                          >
+                          <button type="button" onClick={() => removeLine(line.id)} className="rounded p-1 text-muted-foreground hover:text-danger">
                             <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         </td>
@@ -252,13 +357,8 @@ export default function QuoteBuilder({ onClose, defaultContactId, defaultDealId 
                   <tfoot>
                     <tr className="border-t border-border bg-page/30">
                       <td colSpan={4} className="px-3 py-2">
-                        <button
-                          type="button"
-                          onClick={addLine}
-                          className="flex items-center gap-1 text-xs font-medium text-primary hover:text-primary-hover"
-                        >
-                          <Plus className="h-3.5 w-3.5" />
-                          Add line item
+                        <button type="button" onClick={addLine} className="flex items-center gap-1 text-xs font-medium text-primary hover:text-primary-hover">
+                          <Plus className="h-3.5 w-3.5" /> Add line item
                         </button>
                       </td>
                       <td className="px-3 py-2 text-right text-sm font-bold text-heading">
@@ -275,21 +375,72 @@ export default function QuoteBuilder({ onClose, defaultContactId, defaultDealId 
             <div>
               <h4 className="mb-3 text-sm font-semibold text-heading">Monthly Monitoring</h4>
               <div className="rounded-lg border border-border p-4">
-                <div className="max-w-xs">
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Monthly Amount</label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
-                    <input
-                      type="number"
-                      min={0}
-                      step={0.01}
-                      value={monthlyAmount || ''}
-                      onChange={(e) => setMonthlyAmount(parseFloat(e.target.value) || 0)}
-                      className="w-full rounded-lg border border-border bg-white pl-7 pr-3 py-2 text-sm text-heading outline-none focus:border-primary"
-                    />
+                {monitoringProducts.length > 0 ? (
+                  <div className="space-y-2">
+                    {monitoringProducts.map((plan) => (
+                      <label key={plan.id} className={`flex items-center justify-between rounded-lg border px-4 py-3 cursor-pointer transition-colors ${
+                        Math.abs(monthlyAmount - plan.retail_price) < 0.01 ? 'border-primary bg-primary/5' : 'border-border hover:bg-page'
+                      }`}>
+                        <div className="flex items-center gap-3">
+                          <input
+                            type="radio"
+                            name="monitoring"
+                            checked={Math.abs(monthlyAmount - plan.retail_price) < 0.01}
+                            onChange={() => selectMonitoringPlan(plan.id)}
+                            className="accent-primary"
+                          />
+                          <div>
+                            <p className="text-sm font-medium text-heading">{plan.name}</p>
+                            {plan.description && <p className="text-[10px] text-muted-foreground">{plan.description}</p>}
+                          </div>
+                        </div>
+                        <span className="text-sm font-bold text-primary">{currencyFormat.format(plan.retail_price)}/mo</span>
+                      </label>
+                    ))}
+                    <label className={`flex items-center justify-between rounded-lg border px-4 py-3 cursor-pointer transition-colors ${
+                      !monitoringProducts.some((p) => Math.abs(monthlyAmount - p.retail_price) < 0.01) ? 'border-primary bg-primary/5' : 'border-border hover:bg-page'
+                    }`}>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="radio"
+                          name="monitoring"
+                          checked={!monitoringProducts.some((p) => Math.abs(monthlyAmount - p.retail_price) < 0.01)}
+                          onChange={() => setMonthlyAmount(0)}
+                          className="accent-primary"
+                        />
+                        <span className="text-sm font-medium text-heading">Custom amount</span>
+                      </div>
+                      <div className="relative w-24">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">$</span>
+                        <input
+                          type="number"
+                          min={0}
+                          step={0.01}
+                          value={!monitoringProducts.some((p) => Math.abs(monthlyAmount - p.retail_price) < 0.01) ? (monthlyAmount || '') : ''}
+                          onChange={(e) => setMonthlyAmount(parseFloat(e.target.value) || 0)}
+                          placeholder="0.00"
+                          className="w-full rounded border border-border pl-5 pr-2 py-1 text-xs text-heading outline-none focus:border-primary"
+                        />
+                      </div>
+                    </label>
                   </div>
-                  <p className="mt-1 text-[10px] text-muted-foreground">Month-to-month, auto-renewing</p>
-                </div>
+                ) : (
+                  <div className="max-w-xs">
+                    <label className="mb-1 block text-xs font-medium text-muted-foreground">Monthly Amount</label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
+                      <input
+                        type="number"
+                        min={0}
+                        step={0.01}
+                        value={monthlyAmount || ''}
+                        onChange={(e) => setMonthlyAmount(parseFloat(e.target.value) || 0)}
+                        className="w-full rounded-lg border border-border bg-white pl-7 pr-3 py-2 text-sm text-heading outline-none focus:border-primary"
+                      />
+                    </div>
+                    <p className="mt-1 text-[10px] text-muted-foreground">Month-to-month, auto-renewing</p>
+                  </div>
+                )}
               </div>
             </div>
 

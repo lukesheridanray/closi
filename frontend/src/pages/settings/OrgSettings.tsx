@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { ArrowRight, Building2, CreditCard, PlugZap, Users } from 'lucide-react'
+import { ArrowRight, Building2, CreditCard, Package, PlugZap, Users } from 'lucide-react'
 
 interface SettingsCard {
   title: string
@@ -14,6 +14,12 @@ const settingsCards: SettingsCard[] = [
     description: 'Connect Authorize.net, manage billing configuration, and verify webhook readiness.',
     path: '/settings/payments',
     icon: <CreditCard className="h-5 w-5" />,
+  },
+  {
+    title: 'Product Catalog',
+    description: 'Manage equipment, services, and monitoring plans used in quotes.',
+    path: '/settings/products',
+    icon: <Package className="h-5 w-5" />,
   },
   {
     title: 'Integrations',

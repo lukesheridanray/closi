@@ -701,4 +701,40 @@ export const authnetApi = {
     }).then((r) => r.data),
 }
 
+// ── Products ────────────────────────────────────────
+
+export interface Product {
+  id: string
+  organization_id: string
+  name: string
+  sku: string | null
+  category: string
+  description: string | null
+  unit_cost: number
+  retail_price: number
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export const productsApi = {
+  list: (params?: { search?: string; category?: string; is_active?: boolean }) =>
+    api.get<PaginatedResponse<Product>>('/products', { params: { page_size: 200, ...params } }).then((r) => r.data),
+
+  get: (id: string) =>
+    api.get<Product>(`/products/${id}`).then((r) => r.data),
+
+  create: (data: Partial<Product>) =>
+    api.post<Product>('/products', data).then((r) => r.data),
+
+  update: (id: string, data: Partial<Product>) =>
+    api.put<Product>(`/products/${id}`, data).then((r) => r.data),
+
+  delete: (id: string) =>
+    api.delete(`/products/${id}`).then((r) => r.data),
+
+  seed: () =>
+    api.post('/products/seed').then((r) => r.data),
+}
+
 export default api
