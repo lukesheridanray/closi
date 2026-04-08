@@ -192,19 +192,31 @@ export default function AccountDetail() {
     }
   }
 
-  // Subscription summary
+  // Monitoring status
   const activeContract = contactContracts.find((c) => c.status === 'active')
   const totalRevenue = contactPayments
     .filter((p) => p.status === 'succeeded')
     .reduce((sum, p) => sum + p.amount, 0)
   const failedCount = contactPayments.filter((p) => p.status === 'failed').length
-  const paymentHealth: 'green' | 'yellow' | 'red' =
-    failedCount >= 2 ? 'red' : failedCount === 1 ? 'yellow' : 'green'
-  const paymentHealthColors = { green: 'text-success', yellow: 'text-warning', red: 'text-danger' }
-  const paymentHealthLabels = { green: 'Current', yellow: '1 Missed', red: 'Past Due' }
+  const overdueInvoiceCount = contactInvoices.filter((i) => i.status === 'past_due').length
   const tenure = activeContract?.start_date
     ? Math.max(1, Math.round((new Date().getTime() - new Date(activeContract.start_date).getTime()) / (1000 * 60 * 60 * 24 * 30)))
     : 0
+
+  // Monitoring health: current, warning (1 missed or overdue), past_due (2+ missed), suspended, inactive
+  type MonitoringHealth = 'current' | 'warning' | 'past_due' | 'no_monitoring'
+  const monitoringHealth: MonitoringHealth = !activeContract
+    ? 'no_monitoring'
+    : (failedCount >= 2 || overdueInvoiceCount >= 2) ? 'past_due'
+    : (failedCount >= 1 || overdueInvoiceCount >= 1) ? 'warning'
+    : 'current'
+  const monitoringHealthConfig: Record<MonitoringHealth, { label: string; color: string; bg: string; border: string }> = {
+    current: { label: 'Current', color: 'text-success', bg: 'bg-success/10', border: 'border-success/30' },
+    warning: { label: 'Payment Issue', color: 'text-warning', bg: 'bg-warning/10', border: 'border-warning/30' },
+    past_due: { label: 'Past Due', color: 'text-danger', bg: 'bg-danger/10', border: 'border-danger/30' },
+    no_monitoring: { label: 'No Monitoring', color: 'text-muted-foreground', bg: 'bg-page', border: 'border-border' },
+  }
+  const mh = monitoringHealthConfig[monitoringHealth]
 
   const acceptedQuoteEquipmentTotal = (() => {
     const accepted = contactQuotes.filter((q) => q.status === 'accepted')
@@ -561,34 +573,43 @@ export default function AccountDetail() {
             )}
           </div>
 
-          {/* Subscription summary card */}
-          {activeContract && (
-            <div className="rounded-xl border border-border bg-white p-5 shadow-card">
-              <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                Subscription
+          {/* Monitoring Status card */}
+          <div className={`rounded-xl border p-5 shadow-card ${mh.border} ${mh.bg}`}>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Monitoring Status
               </h3>
+              <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${mh.color} ${monitoringHealth !== 'no_monitoring' ? mh.bg : ''}`}>
+                {mh.label}
+              </span>
+            </div>
+            {activeContract ? (
               <div className="grid grid-cols-2 gap-x-4 gap-y-3">
                 <div>
-                  <dt className="text-xs text-muted-foreground">Monthly Amount</dt>
-                  <dd className="mt-0.5 text-lg font-bold text-primary">{currencyFormat.format(activeContract.monthly_amount)}</dd>
+                  <dt className="text-xs text-muted-foreground">Plan</dt>
+                  <dd className="mt-0.5 text-sm font-semibold text-heading">{currencyFormat.format(activeContract.monthly_amount)}/mo</dd>
                 </div>
                 <div>
-                  <dt className="text-xs text-muted-foreground">Payment Health</dt>
-                  <dd className={`mt-0.5 text-sm font-semibold ${paymentHealthColors[paymentHealth]}`}>
-                    {paymentHealthLabels[paymentHealth]}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-muted-foreground">Tenure</dt>
-                  <dd className="mt-0.5 text-sm font-medium text-heading">{tenure} months</dd>
+                  <dt className="text-xs text-muted-foreground">Since</dt>
+                  <dd className="mt-0.5 text-sm font-medium text-heading">{activeContract.start_date ? format(new Date(activeContract.start_date), 'MMM yyyy') : '--'} ({tenure}mo)</dd>
                 </div>
                 <div>
                   <dt className="text-xs text-muted-foreground">Lifetime Revenue</dt>
                   <dd className="mt-0.5 text-sm font-medium text-heading">{currencyFormat.format(totalRevenue)}</dd>
                 </div>
+                <div>
+                  <dt className="text-xs text-muted-foreground">Payment Issues</dt>
+                  <dd className={`mt-0.5 text-sm font-medium ${failedCount + overdueInvoiceCount > 0 ? 'text-danger' : 'text-success'}`}>
+                    {failedCount + overdueInvoiceCount > 0
+                      ? `${failedCount} failed, ${overdueInvoiceCount} overdue`
+                      : 'None'}
+                  </dd>
+                </div>
               </div>
-            </div>
-          )}
+            ) : (
+              <p className="text-sm text-muted-foreground">No active monitoring plan. Accept a quote with monitoring to activate.</p>
+            )}
+          </div>
 
           {/* Tasks card */}
           <div className="rounded-xl border border-border bg-white p-5 shadow-card">
