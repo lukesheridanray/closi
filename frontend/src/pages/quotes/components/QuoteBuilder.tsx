@@ -48,7 +48,7 @@ export default function QuoteBuilder({ onClose, defaultContactId, defaultDealId 
   ])
 
   // Monitoring plan
-  const [monthlyAmount, setMonthlyAmount] = useState(39.99)
+  const [monthlyAmount, setMonthlyAmount] = useState(0)
   const [termMonths] = useState(1)
   const [autoRenewal] = useState(true)
 
@@ -352,15 +352,32 @@ export default function QuoteBuilder({ onClose, defaultContactId, defaultDealId 
               <div className="rounded-lg border border-border p-4">
                 {monitoringProducts.length > 0 ? (
                   <div className="space-y-2">
+                    {/* No monitoring option */}
+                    <label className={`flex items-center justify-between rounded-lg border px-4 py-3 cursor-pointer transition-colors ${
+                      monthlyAmount === 0 ? 'border-primary bg-primary/5' : 'border-border hover:bg-page'
+                    }`}>
+                      <div className="flex items-center gap-3">
+                        <input
+                          type="radio"
+                          name="monitoring"
+                          checked={monthlyAmount === 0}
+                          onChange={() => setMonthlyAmount(0)}
+                          className="accent-primary"
+                        />
+                        <span className="text-sm font-medium text-heading">No Monitoring</span>
+                      </div>
+                      <span className="text-sm text-muted-foreground">Equipment only</span>
+                    </label>
+
                     {monitoringProducts.map((plan) => (
                       <label key={plan.id} className={`flex items-center justify-between rounded-lg border px-4 py-3 cursor-pointer transition-colors ${
-                        Math.abs(monthlyAmount - plan.retail_price) < 0.01 ? 'border-primary bg-primary/5' : 'border-border hover:bg-page'
+                        monthlyAmount > 0 && Math.abs(monthlyAmount - plan.retail_price) < 0.01 ? 'border-primary bg-primary/5' : 'border-border hover:bg-page'
                       }`}>
                         <div className="flex items-center gap-3">
                           <input
                             type="radio"
                             name="monitoring"
-                            checked={Math.abs(monthlyAmount - plan.retail_price) < 0.01}
+                            checked={monthlyAmount > 0 && Math.abs(monthlyAmount - plan.retail_price) < 0.01}
                             onChange={() => selectMonitoringPlan(plan.id)}
                             className="accent-primary"
                           />
@@ -372,15 +389,17 @@ export default function QuoteBuilder({ onClose, defaultContactId, defaultDealId 
                         <span className="text-sm font-bold text-primary">{currencyFormat.format(plan.retail_price)}/mo</span>
                       </label>
                     ))}
+
+                    {/* Custom amount */}
                     <label className={`flex items-center justify-between rounded-lg border px-4 py-3 cursor-pointer transition-colors ${
-                      !monitoringProducts.some((p) => Math.abs(monthlyAmount - p.retail_price) < 0.01) ? 'border-primary bg-primary/5' : 'border-border hover:bg-page'
+                      monthlyAmount > 0 && !monitoringProducts.some((p) => Math.abs(monthlyAmount - p.retail_price) < 0.01) ? 'border-primary bg-primary/5' : 'border-border hover:bg-page'
                     }`}>
                       <div className="flex items-center gap-3">
                         <input
                           type="radio"
                           name="monitoring"
-                          checked={!monitoringProducts.some((p) => Math.abs(monthlyAmount - p.retail_price) < 0.01)}
-                          onChange={() => setMonthlyAmount(0)}
+                          checked={monthlyAmount > 0 && !monitoringProducts.some((p) => Math.abs(monthlyAmount - p.retail_price) < 0.01)}
+                          onChange={() => setMonthlyAmount(1)}
                           className="accent-primary"
                         />
                         <span className="text-sm font-medium text-heading">Custom amount</span>
@@ -391,7 +410,7 @@ export default function QuoteBuilder({ onClose, defaultContactId, defaultDealId 
                           type="number"
                           min={0}
                           step={0.01}
-                          value={!monitoringProducts.some((p) => Math.abs(monthlyAmount - p.retail_price) < 0.01) ? (monthlyAmount || '') : ''}
+                          value={monthlyAmount > 0 && !monitoringProducts.some((p) => Math.abs(monthlyAmount - p.retail_price) < 0.01) ? (monthlyAmount || '') : ''}
                           onChange={(e) => setMonthlyAmount(parseFloat(e.target.value) || 0)}
                           placeholder="0.00"
                           className="w-full rounded border border-border pl-5 pr-2 py-1 text-xs text-heading outline-none focus:border-primary"
