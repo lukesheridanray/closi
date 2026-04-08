@@ -40,17 +40,6 @@ export default function PipelineToolbar({ search, onSearchChange, onNewDeal, onI
         />
       </div>
 
-      {/* Stubbed filters */}
-      <button className="flex items-center gap-2 rounded-lg border border-border bg-white px-3 py-2 text-sm text-muted-foreground shadow-card transition-colors hover:bg-page">
-        Rep
-        <ChevronDown className="h-4 w-4" />
-      </button>
-
-      <button className="flex items-center gap-2 rounded-lg border border-border bg-white px-3 py-2 text-sm text-muted-foreground shadow-card transition-colors hover:bg-page">
-        Date
-        <ChevronDown className="h-4 w-4" />
-      </button>
-
       {/* Spacer */}
       <div className="flex-1" />
 

@@ -20,7 +20,7 @@ export default function CreateContactModal({ open, onClose }: CreateContactModal
   const fetchPipelines = usePipelineStore((s) => s.fetchPipelines)
 
   const [saving, setSaving] = useState(false)
-  const [addToPipeline, setAddToPipeline] = useState(false)
+  const [skipPipeline, setSkipPipeline] = useState(false)
   const [pipelineStageId, setPipelineStageId] = useState('')
   const [dealTitle, setDealTitle] = useState('')
 
@@ -73,7 +73,7 @@ export default function CreateContactModal({ open, onClose }: CreateContactModal
       })
 
       // Auto-create deal if pipeline stage selected
-      if (addToPipeline && pipelineStageId && activePipelineId && contact?.id) {
+      if (!skipPipeline && pipelineStageId && activePipelineId && contact?.id) {
         const title = dealTitle.trim() || `${form.first_name} ${form.last_name}`
         await dealsApi.create({
           contact_id: contact.id,
@@ -85,7 +85,7 @@ export default function CreateContactModal({ open, onClose }: CreateContactModal
       }
 
       setForm({ first_name: '', last_name: '', email: '', phone: '', address: '', city: '', state: '', zip: '', lead_source: 'other', notes: '' })
-      setAddToPipeline(false)
+      setSkipPipeline(false)
       setDealTitle('')
       onClose()
     } catch {
@@ -99,7 +99,7 @@ export default function CreateContactModal({ open, onClose }: CreateContactModal
   const labelClass = 'text-xs font-medium text-muted-foreground'
 
   return (
-    <SlideOutPanel open={open} onClose={onClose} title="Add Contact" width="md">
+    <SlideOutPanel open={open} onClose={onClose} title="Add Lead" width="md">
       <form onSubmit={handleSubmit} className="space-y-5">
         <div className="grid grid-cols-2 gap-4">
           <div>
@@ -151,46 +151,46 @@ export default function CreateContactModal({ open, onClose }: CreateContactModal
           </select>
         </div>
 
-        {/* Pipeline placement */}
+        {/* Pipeline placement — always on by default */}
         <div className="rounded-lg border border-border p-4">
-          <label className="flex items-center gap-2">
+          <div className="space-y-3">
+            <div>
+              <label className={labelClass}>Pipeline Stage</label>
+              <select
+                value={pipelineStageId}
+                onChange={(e) => setPipelineStageId(e.target.value)}
+                disabled={skipPipeline}
+                className={`${inputClass} ${skipPipeline ? 'opacity-40' : ''}`}
+              >
+                {pipelineStages.map((s) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={labelClass}>{dealLabel.singular} Title</label>
+              <input
+                type="text"
+                value={dealTitle}
+                onChange={(e) => setDealTitle(e.target.value)}
+                disabled={skipPipeline}
+                placeholder={`e.g. ${form.first_name || 'Vaughan'} ${form.last_name || ''} - Home Security`.trim()}
+                className={`${inputClass} ${skipPipeline ? 'opacity-40' : ''}`}
+              />
+              <p className="mt-1 text-[10px] text-muted-foreground">
+                Leave blank to use the contact name
+              </p>
+            </div>
+          </div>
+          <label className="mt-3 flex items-center gap-2">
             <input
               type="checkbox"
-              checked={addToPipeline}
-              onChange={(e) => setAddToPipeline(e.target.checked)}
-              className="accent-primary h-4 w-4 rounded"
+              checked={skipPipeline}
+              onChange={(e) => setSkipPipeline(e.target.checked)}
+              className="accent-primary h-3.5 w-3.5 rounded"
             />
-            <span className="text-sm font-medium text-heading">Add to pipeline as {dealLabel.singularLower}</span>
+            <span className="text-xs text-muted-foreground">Skip pipeline (contact only, no deal)</span>
           </label>
-          {addToPipeline && (
-            <div className="mt-3 space-y-3 pl-6">
-              <div>
-                <label className={labelClass}>Pipeline Stage</label>
-                <select
-                  value={pipelineStageId}
-                  onChange={(e) => setPipelineStageId(e.target.value)}
-                  className={inputClass}
-                >
-                  {pipelineStages.map((s) => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className={labelClass}>{dealLabel.singular} Title</label>
-                <input
-                  type="text"
-                  value={dealTitle}
-                  onChange={(e) => setDealTitle(e.target.value)}
-                  placeholder={`e.g. ${form.first_name || 'Smith'} ${form.last_name || ''} - Home Security`.trim()}
-                  className={inputClass}
-                />
-                <p className="mt-1 text-[10px] text-muted-foreground">
-                  Leave blank to use the contact name
-                </p>
-              </div>
-            </div>
-          )}
         </div>
 
         <div>
@@ -201,7 +201,7 @@ export default function CreateContactModal({ open, onClose }: CreateContactModal
         <div className="flex justify-end gap-3 pt-2">
           <button type="button" onClick={onClose} className="rounded-lg border border-border px-4 py-2 text-sm text-body hover:bg-page">Cancel</button>
           <button type="submit" disabled={saving || !form.first_name || !form.last_name} className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-50">
-            {saving ? 'Saving...' : 'Add Contact'}
+            {saving ? 'Saving...' : 'Add Lead'}
           </button>
         </div>
       </form>

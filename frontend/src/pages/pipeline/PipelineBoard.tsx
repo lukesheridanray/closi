@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import usePipelineStore from '@/stores/pipelineStore'
+import { useSchedulingPrompt, SchedulingModal } from '@/hooks/useSchedulingPrompt'
 import { useEntityLabels } from '@/hooks/useEntityLabels'
 import SlideOutPanel from '@/components/layout/SlideOutPanel'
 import PipelineToolbar from './components/PipelineToolbar'
@@ -15,11 +16,14 @@ type ViewTab = 'table' | 'board'
 export default function PipelineBoard() {
   const { deal: dealLabel } = useEntityLabels()
   const selectedDealId = usePipelineStore((s) => s.selectedDealId)
+  const selectedDeal = usePipelineStore((s) => s.selectedDeal)
+  const selectedDealContact = usePipelineStore((s) => s.selectedDealContact)
   const deals = usePipelineStore((s) => s.deals)
   const contacts = usePipelineStore((s) => s.contacts)
   const stages = usePipelineStore((s) => s.stages)
   const activePipelineId = usePipelineStore((s) => s.activePipelineId)
   const selectDeal = usePipelineStore((s) => s.selectDeal)
+  const fetchDealById = usePipelineStore((s) => s.fetchDealById)
   const moveDeal = usePipelineStore((s) => s.moveDeal)
   const loading = usePipelineStore((s) => s.loading)
   const fetchPipelines = usePipelineStore((s) => s.fetchPipelines)
@@ -29,6 +33,13 @@ export default function PipelineBoard() {
   useEffect(() => {
     if (activePipelineId) fetchDeals(activePipelineId)
   }, [activePipelineId, fetchDeals])
+  useEffect(() => {
+    if (selectedDealId && !selectedDeal) {
+      fetchDealById(selectedDealId)
+    }
+  }, [fetchDealById, selectedDeal, selectedDealId])
+
+  const scheduling = useSchedulingPrompt()
 
   const [activeView, setActiveView] = useState<ViewTab>('table')
   const [search, setSearch] = useState('')
@@ -86,13 +97,21 @@ export default function PipelineBoard() {
   }, [dealsByStage])
 
   // Resolve selected deal + contact + stage for slide-out
-  const selectedDeal = selectedDealId ? deals.find((d) => d.id === selectedDealId) : null
-  const selectedContact = selectedDeal ? contacts.find((c) => c.id === selectedDeal.contact_id) : null
-  const selectedStage = selectedDeal ? stages.find((s) => s.id === selectedDeal.stage_id) : null
+  const resolvedSelectedDeal = selectedDeal ?? (selectedDealId ? deals.find((d) => d.id === selectedDealId) ?? null : null)
+  const selectedContact = selectedDealContact ?? (resolvedSelectedDeal ? contacts.find((c) => c.id === resolvedSelectedDeal.contact_id) ?? null : null)
+  const selectedStage = resolvedSelectedDeal?.stage_id ? stages.find((s) => s.id === resolvedSelectedDeal.stage_id) : null
 
-  const dealWithContact = selectedDeal && selectedContact
-    ? { ...selectedDeal, contact: selectedContact }
+  const dealWithContact = resolvedSelectedDeal && selectedContact
+    ? { ...resolvedSelectedDeal, contact: selectedContact }
     : null
+
+  // Intercept stage moves that need scheduling
+  const handleMoveDeal = (dealId: string, toStageId: string) => {
+    const deal = deals.find((d) => d.id === dealId)
+    const contact = deal ? contactMap.get(deal.contact_id) : null
+    const customerName = contact ? `${contact.first_name} ${contact.last_name}` : deal?.title ?? ''
+    scheduling.interceptMoveDeal(dealId, toStageId, deal?.contact_id ?? '', customerName)
+  }
 
   const handleDealClick = (dealId: string) => selectDeal(dealId)
 
@@ -126,7 +145,7 @@ export default function PipelineBoard() {
           dealsByStage={dealsByStage}
           allStages={pipelineStages}
           onDealClick={handleDealClick}
-          onMoveDeal={moveDeal}
+          onMoveDeal={handleMoveDeal}
         />
       ) : (
         <KanbanBoard
@@ -135,7 +154,7 @@ export default function PipelineBoard() {
           contactMap={contactMap}
           deals={allVisibleDeals}
           onDealClick={handleDealClick}
-          onMoveDeal={moveDeal}
+          onMoveDeal={handleMoveDeal}
         />
       )}
 
@@ -151,6 +170,8 @@ export default function PipelineBoard() {
       </SlideOutPanel>
 
       <CreateDealModal open={showCreateDeal} onClose={() => setShowCreateDeal(false)} />
+
+      <SchedulingModal {...scheduling} />
 
       {showImport && (
         <DealCSVImportModal

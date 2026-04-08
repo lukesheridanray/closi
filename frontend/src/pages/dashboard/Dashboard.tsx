@@ -1,10 +1,20 @@
 import { useState, useMemo, useEffect } from 'react'
-import { DollarSign, TrendingUp, Trophy, Target, Users, BarChart3, RefreshCw, AlertTriangle as AlertTriangleIcon } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import {
+  DollarSign,
+  PhoneCall,
+  CalendarClock,
+  Wrench,
+  FileCheck,
+  Building2,
+  AlertTriangle as AlertTriangleIcon,
+} from 'lucide-react'
 import usePipelineStore from '@/stores/pipelineStore'
 import { useEntityLabels } from '@/hooks/useEntityLabels'
 import useContactStore from '@/stores/contactStore'
 import useTaskStore from '@/stores/taskStore'
 import useInvoiceStore, { useOverdueInvoices, useOverdueTotal } from '@/stores/invoiceStore'
+import useQuoteStore from '@/stores/quoteStore'
 import { analyticsApi } from '@/lib/api'
 import type { RecurringRevenueResponse } from '@/lib/api'
 import KpiCard from './components/KpiCard'
@@ -23,6 +33,7 @@ const currencyFormat = new Intl.NumberFormat('en-US', {
 })
 
 export default function Dashboard() {
+  const navigate = useNavigate()
   const { deal: dealLabel } = useEntityLabels()
   const deals = usePipelineStore((s) => s.deals)
   const stages = usePipelineStore((s) => s.stages)
@@ -32,6 +43,9 @@ export default function Dashboard() {
   const activePipelineId = usePipelineStore((s) => s.activePipelineId)
   const contacts = useContactStore((s) => s.contacts)
   const fetchContacts = useContactStore((s) => s.fetchContacts)
+  const quotes = useQuoteStore((s) => s.quotes)
+  const fetchQuotes = useQuoteStore((s) => s.fetchQuotes)
+  const tasks = useTaskStore((s) => s.tasks)
   const fetchTasks = useTaskStore((s) => s.fetchTasks)
   const fetchInvoices = useInvoiceStore((s) => s.fetchInvoices)
   const overdueInvoices = useOverdueInvoices()
@@ -46,61 +60,79 @@ export default function Dashboard() {
   }, [activePipelineId, fetchDeals])
   useEffect(() => { fetchContacts() }, [fetchContacts])
   useEffect(() => { fetchTasks() }, [fetchTasks])
+  useEffect(() => { fetchQuotes() }, [fetchQuotes])
   useEffect(() => { fetchInvoices() }, [fetchInvoices])
   useEffect(() => {
     analyticsApi.getRecurringRevenue().then(setRecurring).catch(() => {})
   }, [])
 
-  // KPI calculations
-  const kpis = useMemo(() => {
+  const stats = useMemo(() => {
     const wonStageIds = new Set(stages.filter((s) => s.is_won_stage).map((s) => s.id))
     const lostStageIds = new Set(stages.filter((s) => s.is_lost_stage).map((s) => s.id))
+    const openDeals = deals.filter((d) => d.stage_id && !wonStageIds.has(d.stage_id) && !lostStageIds.has(d.stage_id))
+    const now = new Date()
+    const weekAhead = new Date(now)
+    weekAhead.setDate(now.getDate() + 7)
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
 
-    // Pipeline value: sum of open deals (not won/lost)
-    const pipelineValue = deals
-      .filter((d) => !wonStageIds.has(d.stage_id) && !lostStageIds.has(d.stage_id))
+    const pipelineValue = openDeals
       .reduce((sum, d) => sum + d.estimated_value, 0)
 
-    // Deals won this month
-    const now = new Date()
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-    const dealsWonThisMonth = deals.filter(
-      (d) => wonStageIds.has(d.stage_id) && new Date(d.updated_at) >= monthStart,
+    const newLeads = contacts.filter((c) => c.status === 'new').length
+    const activeLeads = contacts.filter((c) => c.status === 'active').length
+    const commercialOpportunities = contacts.filter((c) => c.property_type === 'commercial').length
+
+    const followUpQueue = tasks.filter((task) =>
+      ['pending', 'in_progress'].includes(task.status) &&
+      ['call', 'email', 'follow_up'].includes(task.type),
+    )
+    const installQueue = tasks.filter((task) =>
+      ['pending', 'in_progress'].includes(task.status) && task.type === 'install',
+    )
+    const estimateQueue = tasks.filter((task) =>
+      ['pending', 'in_progress'].includes(task.status) && task.type === 'site_visit',
+    )
+    const upcomingInstalls = installQueue.filter((task) =>
+      task.due_date ? new Date(task.due_date) <= weekAhead : false,
+    ).length
+    const estimatesThisWeek = estimateQueue.filter((task) =>
+      task.due_date ? new Date(task.due_date) <= weekAhead : false,
     ).length
 
-    // Conversion rate: won / (won + lost)
-    const wonCount = deals.filter((d) => wonStageIds.has(d.stage_id)).length
-    const lostCount = deals.filter((d) => lostStageIds.has(d.stage_id)).length
-    const totalClosed = wonCount + lostCount
-    const conversionRate = totalClosed > 0 ? (wonCount / totalClosed) * 100 : 0
+    const dealsWonThisMonth = deals.filter(
+      (d) => d.stage_id ? wonStageIds.has(d.stage_id) && new Date(d.updated_at) >= monthStart : false,
+    ).length
 
-    // Use analytics API for recurring revenue metrics
     const mrr = recurring?.current_mrr ?? 0
     const activeCustomers = recurring?.active_subscriptions ?? 0
-    const arpa = recurring?.avg_revenue_per_account ?? 0
-    const churnRate = recurring?.churn_rate ?? 0
 
-    // LTV estimate
-    const effectiveChurn = churnRate > 0 ? churnRate / 100 : 0.05
-    const ltv = effectiveChurn > 0 ? arpa * (1 / effectiveChurn) : 0
-
-    // LTV:CAC ratio (using $500 placeholder CAC)
-    const cac = 500
-    const ltvCacRatio = cac > 0 ? ltv / cac : 0
+    const acceptedQuotes = quotes.filter((quote) => quote.status === 'accepted').length
+    const rejectedQuotes = quotes.filter((quote) =>
+      quote.status === 'rejected' || quote.status === 'expired',
+    ).length
+    const decisionedQuotes = acceptedQuotes + rejectedQuotes
+    const quoteCloseRate = decisionedQuotes > 0 ? (acceptedQuotes / decisionedQuotes) * 100 : 0
+    const sentQuotesValue = quotes
+      .filter((quote) => quote.status === 'sent')
+      .reduce((sum, quote) => sum + quote.equipment_total, 0)
 
     return {
       mrr,
       pipelineValue,
+      newLeads,
+      activeLeads,
+      followUpQueue: followUpQueue.length,
+      estimatesThisWeek,
+      installQueue: installQueue.length,
+      upcomingInstalls,
       dealsWonThisMonth,
-      conversionRate,
       activeCustomers,
-      arpa,
-      ltv,
-      ltvCacRatio,
-      cac,
-      churnRate: effectiveChurn,
+      commercialOpportunities,
+      quoteCloseRate,
+      sentQuotesValue,
+      openDeals: openDeals.length,
     }
-  }, [deals, stages, recurring])
+  }, [contacts, deals, quotes, recurring, stages, tasks])
 
   // Pipeline stage chart data
   const stageChartData = useMemo(() => {
@@ -146,71 +178,89 @@ export default function Dashboard() {
       .sort((a, b) => b.value - a.value)
   }, [contacts, deals])
 
-  // LTV:CAC health color
-  const ltvCacColor = kpis.ltvCacRatio >= 3 ? 'up' : kpis.ltvCacRatio >= 2 ? 'neutral' : 'down'
-
   if (pipelineLoading && deals.length === 0 && stages.length === 0) {
     return <div className="py-12 text-center text-sm text-muted-foreground">Loading dashboard...</div>
   }
 
   return (
     <div className="space-y-6">
+      <section className="rounded-2xl border border-border bg-white p-5 shadow-card">
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+          Installer Operations
+        </p>
+        <div className="mt-3 flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <h2 className="text-2xl font-semibold text-heading">Medley & Sons operating snapshot</h2>
+            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+              A clearer read on what needs follow-up, what is ready to install, and how monitoring revenue is trending.
+            </p>
+          </div>
+          <div className="rounded-xl bg-page px-4 py-3 text-sm text-body">
+            <button onClick={() => navigate('/contacts')} className="font-semibold text-primary hover:underline">{stats.newLeads} new leads</button> waiting,
+            {' '}<button onClick={() => navigate('/tasks')} className="font-semibold text-primary hover:underline">{stats.followUpQueue} follow-ups</button> open, and <button onClick={() => navigate('/tasks')} className="font-semibold text-primary hover:underline">{stats.upcomingInstalls} installs</button> due in the next 7 days.
+          </div>
+        </div>
+      </section>
+
       {/* Primary KPI Row */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <KpiCard
-          title="Monthly Recurring Revenue"
-          value={currencyFormat.format(kpis.mrr)}
-          trend={{ value: 'vs last month', direction: 'up' }}
+          title="Monitoring MRR"
+          value={currencyFormat.format(stats.mrr)}
+          trend={{ value: `${stats.activeCustomers} active monitoring accounts`, direction: 'up' }}
           icon={<DollarSign className="h-4 w-4" />}
         />
         <KpiCard
-          title="Pipeline Value"
-          value={currencyFormat.format(kpis.pipelineValue)}
-          trend={{ value: `${deals.filter((d) => !stages.find((s) => s.id === d.stage_id)?.is_won_stage && !stages.find((s) => s.id === d.stage_id)?.is_lost_stage).length} open ${dealLabel.pluralLower}`, direction: 'neutral' }}
-          icon={<TrendingUp className="h-4 w-4" />}
+          title="Follow-Up Queue"
+          value={String(stats.followUpQueue)}
+          trend={{ value: `${stats.newLeads} new leads still need first contact`, direction: stats.followUpQueue > 0 ? 'down' : 'up' }}
+          icon={<PhoneCall className="h-4 w-4" />}
         />
         <KpiCard
-          title={`${dealLabel.plural} Won This Month`}
-          value={String(kpis.dealsWonThisMonth)}
-          trend={{ value: 'this month', direction: kpis.dealsWonThisMonth > 0 ? 'up' : 'neutral' }}
-          icon={<Trophy className="h-4 w-4" />}
+          title="Estimates This Week"
+          value={String(stats.estimatesThisWeek)}
+          trend={{ value: `${stats.activeLeads} active leads in play`, direction: 'neutral' }}
+          icon={<CalendarClock className="h-4 w-4" />}
         />
         <KpiCard
-          title="Conversion Rate"
-          value={`${kpis.conversionRate.toFixed(1)}%`}
-          trend={{ value: 'win rate', direction: kpis.conversionRate >= 50 ? 'up' : 'down' }}
-          icon={<Target className="h-4 w-4" />}
+          title="Installs Scheduled"
+          value={String(stats.installQueue)}
+          trend={{ value: `${stats.upcomingInstalls} due in the next 7 days`, direction: stats.upcomingInstalls > 0 ? 'up' : 'neutral' }}
+          icon={<Wrench className="h-4 w-4" />}
         />
       </div>
 
-      {/* Secondary KPI Row (Financial Health) */}
+      {/* Secondary KPI Row */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <KpiCard
-          title="CAC"
-          value={currencyFormat.format(kpis.cac)}
-          icon={<Users className="h-4 w-4" />}
+          title="Open Pipeline"
+          value={currencyFormat.format(stats.pipelineValue)}
+          trend={{ value: `${stats.openDeals} open ${dealLabel.pluralLower}`, direction: 'neutral' }}
+          icon={<DollarSign className="h-4 w-4" />}
         />
         <KpiCard
-          title="LTV"
-          value={currencyFormat.format(kpis.ltv)}
-          icon={<BarChart3 className="h-4 w-4" />}
+          title="Quote Close Rate"
+          value={`${stats.quoteCloseRate.toFixed(1)}%`}
+          trend={{ value: `${stats.dealsWonThisMonth} won this month`, direction: stats.quoteCloseRate >= 50 ? 'up' : 'neutral' }}
+          icon={<FileCheck className="h-4 w-4" />}
         />
         <KpiCard
-          title="LTV:CAC Ratio"
-          value={`${kpis.ltvCacRatio.toFixed(1)}:1`}
-          trend={{ value: kpis.ltvCacRatio >= 3 ? 'Healthy' : kpis.ltvCacRatio >= 2 ? 'Moderate' : 'Low', direction: ltvCacColor }}
+          title="Quotes Awaiting Decision"
+          value={currencyFormat.format(stats.sentQuotesValue)}
+          trend={{ value: 'value currently in sent quotes', direction: 'neutral' }}
+          icon={<DollarSign className="h-4 w-4" />}
         />
         <KpiCard
-          title="Monthly Churn"
-          value={`${(kpis.churnRate * 100).toFixed(1)}%`}
-          trend={{ value: 'placeholder', direction: 'neutral' }}
-          icon={<RefreshCw className="h-4 w-4" />}
+          title="Commercial Opportunities"
+          value={String(stats.commercialOpportunities)}
+          trend={{ value: 'accounts tagged commercial', direction: 'neutral' }}
+          icon={<Building2 className="h-4 w-4" />}
         />
         <KpiCard
-          title="Active Customers"
-          value={String(kpis.activeCustomers)}
-          trend={{ value: `${currencyFormat.format(kpis.arpa)} ARPA`, direction: 'neutral' }}
-          icon={<Users className="h-4 w-4" />}
+          title="Active Monitoring"
+          value={String(stats.activeCustomers)}
+          trend={{ value: 'customers on recurring monitoring', direction: 'up' }}
+          icon={<Wrench className="h-4 w-4" />}
         />
       </div>
 

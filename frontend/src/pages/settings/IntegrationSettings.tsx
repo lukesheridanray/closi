@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   CreditCard, MessageSquare, Mail, Globe, Megaphone,
-  Radio, Webhook, CheckCircle2, Loader2
+  Radio, Webhook, CheckCircle2, Loader2, Calendar, CalendarDays
 } from 'lucide-react'
 import { stripeApi, authnetApi } from '@/lib/api'
 import type { StripeStatus, AuthnetStatus } from '@/lib/api'
@@ -91,6 +91,22 @@ export default function IntegrationSettings() {
       description: 'Auto-import leads from Facebook Lead Ads',
       icon: <Globe className="h-5 w-5" />,
       status: 'not_connected',
+    },
+    {
+      id: 'google_calendar',
+      name: 'Google Calendar',
+      category: 'Calendar Sync',
+      description: 'Two-way sync appointments and installs with Google Calendar',
+      icon: <Calendar className="h-5 w-5" />,
+      status: 'coming_soon',
+    },
+    {
+      id: 'apple_calendar',
+      name: 'Apple Calendar',
+      category: 'Calendar Sync',
+      description: 'Sync appointments with iCal via CalDAV',
+      icon: <CalendarDays className="h-5 w-5" />,
+      status: 'coming_soon',
     },
     {
       id: 'alarmcom',

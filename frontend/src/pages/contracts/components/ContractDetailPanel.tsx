@@ -1,10 +1,12 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { format, differenceInDays } from 'date-fns'
-import { Shield, Package } from 'lucide-react'
+import { Shield, Package, CreditCard, Radio } from 'lucide-react'
 import type { Contract } from '@/types/contract'
 import { CONTRACT_STATUS_LABELS, PAYMENT_STATUS_LABELS } from '@/types/contract'
 import useContactStore from '@/stores/contactStore'
 import useContractStore, { usePaymentsForContract } from '@/stores/contractStore'
+import { authnetApi } from '@/lib/api'
+import BillingActions from '@/components/shared/BillingActions'
 
 const currencyFormat = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -37,15 +39,66 @@ export default function ContractDetailPanel({ contract }: ContractDetailPanelPro
   const fetchPayments = useContractStore((s) => s.fetchPayments)
   const payments = usePaymentsForContract(contract.id)
 
+  const [chargeResult, setChargeResult] = useState<{ status: 'success' | 'error'; message: string } | null>(null)
+  const [subResult, setSubResult] = useState<{ status: 'success' | 'error'; message: string } | null>(null)
+  const [chargingEquipment, setChargingEquipment] = useState(false)
+  const [startingMonitoring, setStartingMonitoring] = useState(false)
+
   // Fetch payments when contract detail panel opens
   useEffect(() => { fetchPayments({ contract_id: contract.id }) }, [contract.id, fetchPayments])
 
   const contact = contacts.find((c) => c.id === contract.contact_id)
   const daysUntilEnd = contract.end_date ? differenceInDays(new Date(contract.end_date), new Date()) : 0
-  const totalPaid = payments
+  // Payments linked to this contract
+  const contractPaid = payments
     .filter((p) => p.status === 'succeeded')
     .reduce((sum, p) => sum + p.amount, 0)
+  // For billing actions, use contract-level payments
+  const totalPaid = contractPaid
   const monthsAsCustomer = contract.start_date ? Math.max(1, Math.round(differenceInDays(new Date(), new Date(contract.start_date)) / 30)) : 0
+
+  const hasEquipmentTotal = contract.equipment_total > 0
+  const hasMonthlyNoSub = contract.monthly_amount > 0 && !contract.subscription_id
+
+  async function handleChargeEquipment() {
+    setChargingEquipment(true)
+    setChargeResult(null)
+    try {
+      const res = await authnetApi.charge({
+        contact_id: contract.contact_id,
+        amount: contract.equipment_total,
+        description: `Equipment charge for ${contract.title}`,
+        contract_id: contract.id,
+      })
+      if (res.status === 'succeeded' || res.status === 'approved') {
+        setChargeResult({ status: 'success', message: `Charged ${currencyFormat.format(res.amount)} successfully` })
+        fetchPayments({ contract_id: contract.id })
+      } else {
+        setChargeResult({ status: 'error', message: res.failure_message || `Charge ${res.status}` })
+      }
+    } catch (err: any) {
+      setChargeResult({ status: 'error', message: err?.response?.data?.detail || err?.message || 'Charge failed' })
+    } finally {
+      setChargingEquipment(false)
+    }
+  }
+
+  async function handleStartMonitoring() {
+    setStartingMonitoring(true)
+    setSubResult(null)
+    try {
+      const res = await authnetApi.createSubscription(contract.id)
+      if (res.status === 'active' || res.status === 'created') {
+        setSubResult({ status: 'success', message: `Subscription started — ${currencyFormat.format(res.amount)}/mo` })
+      } else {
+        setSubResult({ status: 'error', message: `Subscription status: ${res.status}` })
+      }
+    } catch (err: any) {
+      setSubResult({ status: 'error', message: err?.response?.data?.detail || err?.message || 'Failed to create subscription' })
+    } finally {
+      setStartingMonitoring(false)
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -62,27 +115,50 @@ export default function ContractDetailPanel({ contract }: ContractDetailPanelPro
         </div>
       </div>
 
-      {/* Monthly amount hero */}
-      <div className="rounded-lg bg-primary/5 p-4 text-center">
-        <p className="text-xs font-medium text-muted-foreground">Monthly Monitoring</p>
-        <p className="mt-1 text-3xl font-bold text-primary">{currencyFormat.format(contract.monthly_amount)}</p>
-        <p className="mt-1 text-xs text-muted-foreground">{contract.term_months} month contract</p>
-      </div>
+      {/* Billing Actions — only show for actionable items */}
+      {/* Install-only agreement: show charge if equipment unpaid */}
+      {/* Monitoring agreement: show setup if no subscription yet */}
+      {(contract.equipment_total > 0 && totalPaid < contract.equipment_total && !contract.subscription_id) ||
+       (contract.monthly_amount > 0 && !contract.subscription_id) ? (
+        <BillingActions
+          contactId={contract.contact_id}
+          equipmentOwed={contract.monthly_amount === 0 ? Math.max(0, contract.equipment_total - totalPaid) : 0}
+          monitoringAmount={contract.monthly_amount}
+          hasActiveSubscription={!!contract.subscription_id}
+          onChargeComplete={() => fetchPayments({ contract_id: contract.id })}
+          compact={false}
+        />
+      ) : null}
 
-      {/* Contract details */}
+      {/* Monthly amount hero */}
+      {contract.monthly_amount > 0 && (
+        <div className="rounded-lg bg-primary/5 p-4 text-center">
+          <p className="text-xs font-medium text-muted-foreground">Monthly Monitoring</p>
+          <p className="mt-1 text-3xl font-bold text-primary">{currencyFormat.format(contract.monthly_amount)}</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {contract.term_months <= 1 ? 'Month-to-month' : `${contract.term_months} month agreement`}
+            {contract.subscription_id ? ' — Active' : ''}
+          </p>
+        </div>
+      )}
+
+      {/* Agreement details */}
       <div className="rounded-lg border border-border bg-page/50 p-4">
         <h4 className="mb-3 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-          Contract Details
+          Agreement Details
         </h4>
         <div className="grid grid-cols-2 gap-x-4 gap-y-3">
           <Field label="Start Date" value={contract.start_date ? format(new Date(contract.start_date), 'MMM d, yyyy') : 'N/A'} />
-          <Field label="End Date" value={contract.end_date ? format(new Date(contract.end_date), 'MMM d, yyyy') : 'N/A'} />
-          <Field
-            label="Days Until Renewal"
-            value={daysUntilEnd > 0 ? `${daysUntilEnd} days` : 'Expired'}
-          />
-          <Field label="Total Value" value={currencyFormat.format(contract.total_value)} />
-          <Field label="Equipment Total" value={currencyFormat.format(contract.equipment_total)} />
+          <Field label="End Date" value={contract.end_date ? format(new Date(contract.end_date), 'MMM d, yyyy') : contract.term_months <= 1 ? 'Month-to-month' : 'N/A'} />
+          {contract.term_months > 1 && (
+            <Field
+              label="Days Until Renewal"
+              value={contract.end_date ? (daysUntilEnd > 0 ? `${daysUntilEnd} days` : 'Due for renewal') : 'N/A'}
+            />
+          )}
+          {contract.equipment_total > 0 && (
+            <Field label="Equipment Total" value={currencyFormat.format(contract.equipment_total)} />
+          )}
           <Field label="Tenure" value={`${monthsAsCustomer} months`} />
           <Field label="Total Paid" value={currencyFormat.format(totalPaid)} />
           {contract.signed_at && (

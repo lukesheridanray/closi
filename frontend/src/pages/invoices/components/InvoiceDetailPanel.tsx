@@ -1,11 +1,13 @@
+import { useState } from 'react'
 import { format, differenceInDays } from 'date-fns'
-import { Send, CheckCircle2, XCircle, Download, AlertTriangle } from 'lucide-react'
+import { Send, CheckCircle2, XCircle, Download, AlertTriangle, CreditCard, Mail } from 'lucide-react'
 import type { Invoice } from '@/types/invoice'
 import { INVOICE_STATUS_LABELS, INVOICE_STATUS_COLORS } from '@/types/invoice'
 import useInvoiceStore from '@/stores/invoiceStore'
 import useContactStore from '@/stores/contactStore'
 import { usePaymentsForContract } from '@/stores/contractStore'
 import { PAYMENT_STATUS_LABELS } from '@/types/contract'
+import { authnetApi } from '@/lib/api'
 
 const currencyFormat = new Intl.NumberFormat('en-US', {
   style: 'currency',
@@ -23,6 +25,49 @@ export default function InvoiceDetailPanel({ invoice }: InvoiceDetailPanelProps)
   const markPaid = useInvoiceStore((s) => s.markPaid)
   const voidInvoice = useInvoiceStore((s) => s.voidInvoice)
   const contacts = useContactStore((s) => s.contacts)
+
+  const [chargeLoading, setChargeLoading] = useState(false)
+  const [chargeResult, setChargeResult] = useState<{ status: 'success' | 'error'; message: string } | null>(null)
+  const [sendingEmail, setSendingEmail] = useState(false)
+  const [emailResult, setEmailResult] = useState<{ status: 'success' | 'error'; message: string } | null>(null)
+
+  const isUnpaid = invoice.status === 'sent' || invoice.status === 'past_due'
+
+  const handleChargeCard = async () => {
+    setChargeLoading(true)
+    setChargeResult(null)
+    try {
+      const res = await authnetApi.charge({
+        contact_id: invoice.contact_id,
+        amount: invoice.total,
+        description: `Invoice ${invoice.invoice_number}`,
+        contract_id: invoice.contract_id,
+      })
+      if (res.status === 'succeeded') {
+        setChargeResult({ status: 'success', message: `Charged ${currencyFormat.format(res.amount)} successfully` })
+        markPaid(invoice.id)
+      } else {
+        setChargeResult({ status: 'error', message: res.failure_message || `Charge ${res.status}` })
+      }
+    } catch (err: any) {
+      setChargeResult({ status: 'error', message: err?.response?.data?.detail || err.message || 'Charge failed' })
+    } finally {
+      setChargeLoading(false)
+    }
+  }
+
+  const handleSendEmail = async () => {
+    setSendingEmail(true)
+    setEmailResult(null)
+    try {
+      await sendInvoice(invoice.id)
+      setEmailResult({ status: 'success', message: 'Invoice email sent' })
+    } catch (err: any) {
+      setEmailResult({ status: 'error', message: err?.response?.data?.detail || err.message || 'Failed to send email' })
+    } finally {
+      setSendingEmail(false)
+    }
+  }
 
   const contractPayments = usePaymentsForContract(invoice.contract_id)
 
@@ -79,6 +124,26 @@ export default function InvoiceDetailPanel({ invoice }: InvoiceDetailPanelProps)
             Mark as Paid
           </button>
         )}
+        {isUnpaid && (
+          <button
+            onClick={handleChargeCard}
+            disabled={chargeLoading}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-primary/90 disabled:opacity-50"
+          >
+            <CreditCard className="h-3.5 w-3.5" />
+            {chargeLoading ? 'Charging...' : 'Charge Card on File'}
+          </button>
+        )}
+        {isUnpaid && (
+          <button
+            onClick={handleSendEmail}
+            disabled={sendingEmail}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-medium text-body transition-colors hover:bg-page disabled:opacity-50"
+          >
+            <Mail className="h-3.5 w-3.5" />
+            {sendingEmail ? 'Sending...' : 'Send Invoice Email'}
+          </button>
+        )}
         {invoice.status !== 'paid' && invoice.status !== 'void' && (
           <button
             onClick={() => voidInvoice(invoice.id)}
@@ -93,6 +158,30 @@ export default function InvoiceDetailPanel({ invoice }: InvoiceDetailPanelProps)
           Download PDF
         </button>
       </div>
+
+      {/* Charge Result */}
+      {chargeResult && (
+        <div className={`flex items-center gap-2 rounded-lg border p-2.5 text-xs font-medium ${
+          chargeResult.status === 'success'
+            ? 'border-success/30 bg-success/5 text-success'
+            : 'border-danger/30 bg-danger/5 text-danger'
+        }`}>
+          {chargeResult.status === 'success' ? <CheckCircle2 className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
+          {chargeResult.message}
+        </div>
+      )}
+
+      {/* Email Result */}
+      {emailResult && (
+        <div className={`flex items-center gap-2 rounded-lg border p-2.5 text-xs font-medium ${
+          emailResult.status === 'success'
+            ? 'border-success/30 bg-success/5 text-success'
+            : 'border-danger/30 bg-danger/5 text-danger'
+        }`}>
+          {emailResult.status === 'success' ? <CheckCircle2 className="h-3.5 w-3.5" /> : <XCircle className="h-3.5 w-3.5" />}
+          {emailResult.message}
+        </div>
+      )}
 
       {/* Details */}
       <div className="grid grid-cols-2 gap-x-4 gap-y-3 rounded-lg border border-border p-4">

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
-import { Search, Plus, ChevronDown, Upload } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { DollarSign, Search, Plus, ChevronDown, Upload } from 'lucide-react'
 import useContactStore, { useFilteredContacts } from '@/stores/contactStore'
 import type { Contact, LeadSource, ContactStatus } from '@/types/contact'
 import { LEAD_SOURCE_LABELS, CONTACT_STATUS_LABELS } from '@/types/contact'
@@ -38,12 +39,19 @@ const columns: Column<Contact>[] = [
     label: 'Name',
     sortable: true,
     render: (c) => (
-      <div>
-        <p className="font-medium text-heading">
-          {c.first_name} {c.last_name}
-        </p>
-        {c.company && (
-          <p className="text-xs text-muted-foreground">{c.company}</p>
+      <div className="flex items-center gap-1.5">
+        <div>
+          <p className="font-medium text-heading">
+            {c.first_name} {c.last_name}
+          </p>
+          {c.company && (
+            <p className="text-xs text-muted-foreground">{c.company}</p>
+          )}
+        </div>
+        {c.status === 'customer' && (
+          <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary/10 text-primary" title="Customer — billing enabled">
+            <DollarSign className="h-2.5 w-2.5" />
+          </span>
         )}
       </div>
     ),
@@ -102,14 +110,22 @@ const columns: Column<Contact>[] = [
 ]
 
 export default function ContactList() {
+  const navigate = useNavigate()
   const [showImport, setShowImport] = useState(false)
   const [showCreate, setShowCreate] = useState(false)
   const selectedContactId = useContactStore((s) => s.selectedContactId)
+  const selectedContact = useContactStore((s) => s.selectedContact)
   const allContacts = useContactStore((s) => s.contacts)
   const loading = useContactStore((s) => s.loading)
   const fetchContacts = useContactStore((s) => s.fetchContacts)
+  const fetchContactById = useContactStore((s) => s.fetchContactById)
 
   useEffect(() => { fetchContacts() }, [fetchContacts])
+  useEffect(() => {
+    if (selectedContactId && !selectedContact) {
+      fetchContactById(selectedContactId)
+    }
+  }, [fetchContactById, selectedContact, selectedContactId])
   const search = useContactStore((s) => s.search)
   const sourceFilter = useContactStore((s) => s.sourceFilter)
   const statusFilter = useContactStore((s) => s.statusFilter)
@@ -123,12 +139,6 @@ export default function ContactList() {
   const setPage = useContactStore((s) => s.setPage)
 
   const { contacts, totalCount, totalPages, page } = useFilteredContacts()
-
-  // If a contact is selected, show the detail view
-  const selectedContact = selectedContactId
-    ? allContacts.find((c) => c.id === selectedContactId)
-    : null
-
   if (selectedContact) {
     return (
       <ContactDetail
@@ -199,13 +209,13 @@ export default function ContactList() {
           Import
         </button>
 
-        {/* Add contact button */}
+        {/* Add lead button */}
         <button
-          onClick={() => setShowCreate(true)}
+          onClick={() => navigate('/contacts/new')}
           className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white shadow-card transition-colors hover:bg-primary-hover"
         >
           <Plus className="h-4 w-4" />
-          Add Contact
+          Add Lead
         </button>
       </div>
 

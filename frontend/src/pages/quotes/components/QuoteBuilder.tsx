@@ -15,35 +15,42 @@ const currencyFormat = new Intl.NumberFormat('en-US', {
 
 interface QuoteBuilderProps {
   onClose: () => void
+  defaultContactId?: string
+  defaultDealId?: string
 }
 
-export default function QuoteBuilder({ onClose }: QuoteBuilderProps) {
+export default function QuoteBuilder({ onClose, defaultContactId, defaultDealId }: QuoteBuilderProps) {
   const { deal: dealLabel } = useEntityLabels()
   const addQuote = useQuoteStore((s) => s.addQuote)
   const contacts = useContactStore((s) => s.contacts)
   const deals = usePipelineStore((s) => s.deals)
 
-  const [title, setTitle] = useState('')
-  const [contactId, setContactId] = useState('')
-  const [dealId, setDealId] = useState('')
+  const [titleOverride, setTitleOverride] = useState('')
+  const [contactId, setContactId] = useState(defaultContactId ?? '')
+  const [dealId, setDealId] = useState(defaultDealId ?? '')
   const [notes, setNotes] = useState('')
 
-  // Equipment lines
-  const [lines, setLines] = useState<QuoteLine[]>([
-    { id: '1', product_name: '', quantity: 1, unit_price: 0, total: 0 },
+  // Equipment lines (extended with discount)
+  type LineItem = QuoteLine & { discount: number }
+  const [lines, setLines] = useState<LineItem[]>([
+    { id: '1', product_name: '', quantity: 1, unit_price: 0, discount: 0, total: 0 },
   ])
 
   // Monitoring plan
   const [monthlyAmount, setMonthlyAmount] = useState(39.99)
-  const [termMonths, setTermMonths] = useState(36)
-  const [autoRenewal, setAutoRenewal] = useState(true)
+  const [termMonths] = useState(1)
+  const [autoRenewal] = useState(true)
 
+  const selectedContact = contacts.find((c) => c.id === contactId)
+  const autoTitle = selectedContact
+    ? `${selectedContact.last_name} - Security System Quote`
+    : 'Security System Quote'
   const contactDeals = deals.filter((d) => d.contact_id === contactId)
   const equipmentTotal = lines.reduce((sum, l) => sum + l.total, 0)
   const totalContractValue = equipmentTotal + (monthlyAmount * termMonths)
 
   function addLine() {
-    setLines([...lines, { id: String(Date.now()), product_name: '', quantity: 1, unit_price: 0, total: 0 }])
+    setLines([...lines, { id: String(Date.now()), product_name: '', quantity: 1, unit_price: 0, discount: 0, total: 0 }])
   }
 
   function removeLine(id: string) {
@@ -51,39 +58,58 @@ export default function QuoteBuilder({ onClose }: QuoteBuilderProps) {
     setLines(lines.filter((l) => l.id !== id))
   }
 
-  function updateLine(id: string, field: keyof QuoteLine, value: string | number) {
+  function updateLine(id: string, field: keyof LineItem, value: string | number) {
     setLines(lines.map((l) => {
       if (l.id !== id) return l
       const updated = { ...l, [field]: value }
-      if (field === 'quantity' || field === 'unit_price') {
-        updated.total = Number(updated.quantity) * Number(updated.unit_price)
+      if (field === 'quantity' || field === 'unit_price' || field === 'discount') {
+        const subtotal = Number(updated.quantity) * Number(updated.unit_price)
+        const discountAmt = subtotal * (Number(updated.discount) / 100)
+        updated.total = subtotal - discountAmt
       }
       return updated
     }))
   }
 
+  const regularTotal = lines.reduce((sum, l) => sum + (Number(l.quantity) * Number(l.unit_price)), 0)
+  const totalSavings = regularTotal - equipmentTotal
+
+  const [saving, setSaving] = useState(false)
+
+  async function createQuote(andSend: boolean) {
+    if (!contactId || !dealId) return
+    setSaving(true)
+    try {
+      const quote = await addQuote({
+        deal_id: dealId,
+        contact_id: contactId,
+        created_by: 'You',
+        title: titleOverride.trim() || autoTitle,
+        status: 'draft',
+        equipment_lines: lines.filter((l) => l.product_name.trim()),
+        equipment_total: equipmentTotal,
+        monthly_monitoring_amount: monthlyAmount,
+        contract_term_months: termMonths,
+        auto_renewal: autoRenewal,
+        total_contract_value: totalContractValue,
+        notes: notes.trim(),
+        valid_until: null,
+        sent_at: null,
+        accepted_at: null,
+      })
+      if (andSend && quote?.id) {
+        const { quotesApi } = await import('@/lib/api')
+        await quotesApi.send(quote.id)
+      }
+      onClose()
+    } finally {
+      setSaving(false)
+    }
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    if (!title.trim() || !contactId || !dealId) return
-
-    addQuote({
-      deal_id: dealId,
-      contact_id: contactId,
-      created_by: 'You',
-      title: title.trim(),
-      status: 'draft',
-      equipment_lines: lines.filter((l) => l.product_name.trim()),
-      equipment_total: equipmentTotal,
-      monthly_monitoring_amount: monthlyAmount,
-      contract_term_months: termMonths,
-      auto_renewal: autoRenewal,
-      total_contract_value: totalContractValue,
-      notes: notes.trim(),
-      valid_until: null,
-      sent_at: null,
-      accepted_at: null,
-    })
-    onClose()
+    createQuote(false)
   }
 
   return (
@@ -96,7 +122,13 @@ export default function QuoteBuilder({ onClose }: QuoteBuilderProps) {
         >
           {/* Header */}
           <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-white px-6 py-4 rounded-t-2xl">
-            <h3 className="text-lg font-semibold text-heading">Create Quote</h3>
+            <input
+              type="text"
+              value={titleOverride}
+              onChange={(e) => setTitleOverride(e.target.value)}
+              placeholder={autoTitle}
+              className="text-lg font-semibold text-heading bg-transparent outline-none placeholder:text-heading/50 w-full"
+            />
             <button type="button" onClick={onClose} className="rounded-lg p-1 text-muted-foreground hover:bg-page hover:text-body">
               <X className="h-5 w-5" />
             </button>
@@ -105,17 +137,6 @@ export default function QuoteBuilder({ onClose }: QuoteBuilderProps) {
           <div className="space-y-6 p-6">
             {/* Basic info */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div className="sm:col-span-2">
-                <label className="mb-1 block text-xs font-medium text-muted-foreground">Quote Title</label>
-                <input
-                  type="text"
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="e.g., Smith Home - Pro Security Package"
-                  autoFocus
-                  className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-heading outline-none focus:border-primary"
-                />
-              </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-muted-foreground">Contact</label>
                 <select
@@ -153,9 +174,10 @@ export default function QuoteBuilder({ onClose }: QuoteBuilderProps) {
                   <thead>
                     <tr className="bg-page/50">
                       <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground">Product</th>
-                      <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-20">Qty</th>
-                      <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-28">Unit Price</th>
-                      <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground w-28">Total</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-16">Qty</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-24">Price</th>
+                      <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground w-20">Discount</th>
+                      <th className="px-3 py-2 text-right text-xs font-semibold uppercase tracking-wider text-muted-foreground w-24">Total</th>
                       <th className="w-10" />
                     </tr>
                   </thead>
@@ -185,13 +207,35 @@ export default function QuoteBuilder({ onClose }: QuoteBuilderProps) {
                             type="number"
                             min={0}
                             step={0.01}
-                            value={line.unit_price}
+                            value={line.unit_price || ''}
                             onChange={(e) => updateLine(line.id, 'unit_price', parseFloat(e.target.value) || 0)}
                             className="w-full bg-transparent text-sm text-heading outline-none"
                           />
                         </td>
-                        <td className="px-3 py-2 text-right text-sm font-medium text-heading">
-                          {currencyFormat.format(line.total)}
+                        <td className="px-3 py-2">
+                          <div className="flex items-center gap-0.5">
+                            <input
+                              type="number"
+                              min={0}
+                              max={100}
+                              step={1}
+                              value={line.discount || ''}
+                              onChange={(e) => updateLine(line.id, 'discount', parseFloat(e.target.value) || 0)}
+                              placeholder="0"
+                              className="w-full bg-transparent text-sm text-heading outline-none"
+                            />
+                            <span className="text-xs text-muted-foreground">%</span>
+                          </div>
+                        </td>
+                        <td className="px-3 py-2 text-right">
+                          {line.discount > 0 && (
+                            <span className="text-[10px] text-muted-foreground line-through mr-1">
+                              {currencyFormat.format(Number(line.quantity) * Number(line.unit_price))}
+                            </span>
+                          )}
+                          <span className="text-sm font-medium text-heading">
+                            {currencyFormat.format(line.total)}
+                          </span>
                         </td>
                         <td className="px-2 py-2">
                           <button
@@ -207,7 +251,7 @@ export default function QuoteBuilder({ onClose }: QuoteBuilderProps) {
                   </tbody>
                   <tfoot>
                     <tr className="border-t border-border bg-page/30">
-                      <td colSpan={3} className="px-3 py-2">
+                      <td colSpan={4} className="px-3 py-2">
                         <button
                           type="button"
                           onClick={addLine}
@@ -227,11 +271,11 @@ export default function QuoteBuilder({ onClose }: QuoteBuilderProps) {
               </div>
             </div>
 
-            {/* Monitoring plan */}
+            {/* Monthly Monitoring */}
             <div>
-              <h4 className="mb-3 text-sm font-semibold text-heading">Monitoring Plan</h4>
-              <div className="grid grid-cols-3 gap-4 rounded-lg border border-border p-4">
-                <div>
+              <h4 className="mb-3 text-sm font-semibold text-heading">Monthly Monitoring</h4>
+              <div className="rounded-lg border border-border p-4">
+                <div className="max-w-xs">
                   <label className="mb-1 block text-xs font-medium text-muted-foreground">Monthly Amount</label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">$</span>
@@ -239,52 +283,37 @@ export default function QuoteBuilder({ onClose }: QuoteBuilderProps) {
                       type="number"
                       min={0}
                       step={0.01}
-                      value={monthlyAmount}
+                      value={monthlyAmount || ''}
                       onChange={(e) => setMonthlyAmount(parseFloat(e.target.value) || 0)}
                       className="w-full rounded-lg border border-border bg-white pl-7 pr-3 py-2 text-sm text-heading outline-none focus:border-primary"
                     />
                   </div>
-                </div>
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-muted-foreground">Contract Term</label>
-                  <select
-                    value={termMonths}
-                    onChange={(e) => setTermMonths(parseInt(e.target.value))}
-                    className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-body outline-none focus:border-primary"
-                  >
-                    <option value={12}>12 months</option>
-                    <option value={24}>24 months</option>
-                    <option value={36}>36 months</option>
-                    <option value={60}>60 months</option>
-                  </select>
-                </div>
-                <div className="flex items-end">
-                  <label className="flex items-center gap-2 text-sm text-body">
-                    <input
-                      type="checkbox"
-                      checked={autoRenewal}
-                      onChange={(e) => setAutoRenewal(e.target.checked)}
-                      className="accent-primary h-4 w-4 rounded"
-                    />
-                    Auto-renewal
-                  </label>
+                  <p className="mt-1 text-[10px] text-muted-foreground">Month-to-month, auto-renewing</p>
                 </div>
               </div>
             </div>
 
             {/* Totals summary */}
             <div className="rounded-lg bg-primary/5 p-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-body">Equipment Total</span>
+              {totalSavings > 0 && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-body">Regular Price</span>
+                  <span className="text-sm text-muted-foreground line-through">{currencyFormat.format(regularTotal)}</span>
+                </div>
+              )}
+              {totalSavings > 0 && (
+                <div className="mt-1 flex items-center justify-between">
+                  <span className="text-sm font-medium text-success">You Save</span>
+                  <span className="text-sm font-medium text-success">-{currencyFormat.format(totalSavings)}</span>
+                </div>
+              )}
+              <div className={`flex items-center justify-between ${totalSavings > 0 ? 'mt-1 pt-1 border-t border-primary/10' : ''}`}>
+                <span className="text-sm text-body">Equipment / Install</span>
                 <span className="text-sm font-medium text-heading">{currencyFormat.format(equipmentTotal)}</span>
               </div>
               <div className="mt-1 flex items-center justify-between">
                 <span className="text-sm text-body">Monthly Monitoring</span>
-                <span className="text-sm font-medium text-heading">{currencyFormat.format(monthlyAmount)}/mo x {termMonths} mo</span>
-              </div>
-              <div className="mt-2 flex items-center justify-between border-t border-primary/10 pt-2">
-                <span className="text-sm font-semibold text-heading">Total Contract Value</span>
-                <span className="text-lg font-bold text-primary">{currencyFormat.format(totalContractValue)}</span>
+                <span className="text-sm font-medium text-heading">{currencyFormat.format(monthlyAmount)}/mo</span>
               </div>
             </div>
 
@@ -308,10 +337,18 @@ export default function QuoteBuilder({ onClose }: QuoteBuilderProps) {
             </button>
             <button
               type="submit"
-              disabled={!title.trim() || !contactId || !dealId}
-              className="rounded-lg bg-primary px-6 py-2 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-50"
+              disabled={saving || !contactId || !dealId}
+              className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-heading hover:bg-page disabled:opacity-50"
             >
-              Create Quote
+              {saving ? 'Saving...' : 'Save as Draft'}
+            </button>
+            <button
+              type="button"
+              onClick={() => createQuote(true)}
+              disabled={saving || !contactId || !dealId}
+              className="rounded-lg bg-primary px-5 py-2 text-sm font-medium text-white hover:bg-primary-hover disabled:opacity-50"
+            >
+              {saving ? 'Sending...' : 'Create & Send'}
             </button>
           </div>
         </form>

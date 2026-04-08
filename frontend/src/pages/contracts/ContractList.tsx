@@ -61,7 +61,7 @@ export default function ContractList() {
   const columns: Column<Contract>[] = [
     {
       key: 'title',
-      label: 'Contract',
+      label: 'Agreement',
       render: (c) => {
         const contact = contactMap.get(c.contact_id)
         return (
@@ -95,7 +95,7 @@ export default function ContractList() {
       label: 'Term',
       className: 'hidden md:table-cell',
       render: (c) => (
-        <span className="text-body">{c.term_months} mo</span>
+        <span className="text-body">{c.term_months <= 1 ? 'Month-to-month' : `${c.term_months} mo`}</span>
       ),
     },
     {
@@ -103,10 +103,12 @@ export default function ContractList() {
       label: 'Renewal',
       className: 'hidden lg:table-cell',
       render: (c) => {
+        if (c.term_months <= 1) return <span className="text-success text-sm">Auto-renewing</span>
+        if (!c.end_date) return <span className="text-muted-foreground text-sm">N/A</span>
         const daysLeft = differenceInDays(new Date(c.end_date), new Date())
         return (
           <span className={`text-sm ${daysLeft <= 90 ? 'text-warning font-medium' : 'text-body'}`}>
-            {daysLeft > 0 ? `${daysLeft} days` : 'Expired'}
+            {daysLeft > 0 ? `${daysLeft} days` : 'Due for renewal'}
           </span>
         )
       },
@@ -122,7 +124,7 @@ export default function ContractList() {
   ]
 
   if (loading && allContracts.length === 0) {
-    return <div className="py-12 text-center text-sm text-muted-foreground">Loading contracts...</div>
+    return <div className="py-12 text-center text-sm text-muted-foreground">Loading agreements...</div>
   }
 
   return (
@@ -135,7 +137,7 @@ export default function ContractList() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search contracts..."
+            placeholder="Search agreements..."
             className="w-full rounded-lg border border-border bg-white py-2 pl-9 pr-3 text-sm text-heading shadow-card outline-none placeholder:text-placeholder focus:border-primary focus:ring-1 focus:ring-primary/20"
           />
         </div>
@@ -155,7 +157,7 @@ export default function ContractList() {
       </div>
 
       <p className="text-sm text-muted-foreground">
-        {contracts.length} contract{contracts.length !== 1 ? 's' : ''}
+        {contracts.length} agreement{contracts.length !== 1 ? 's' : ''}
       </p>
 
       <DataTable<Contract>
@@ -163,13 +165,13 @@ export default function ContractList() {
         data={contracts}
         rowKey={(c) => c.id}
         onRowClick={(c) => selectContract(c.id)}
-        emptyMessage="No contracts match your search"
+        emptyMessage="No agreements match your search"
       />
 
       <SlideOutPanel
         open={!!selectedContract}
         onClose={() => selectContract(null)}
-        title={selectedContract?.title ?? 'Contract Details'}
+        title={selectedContract?.title ?? 'Agreement Details'}
         width="md"
       >
         {selectedContract && <ContractDetailPanel contract={selectedContract} />}

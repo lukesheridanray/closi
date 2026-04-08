@@ -141,14 +141,14 @@ export default function CreateInvoiceModal({ open, onClose }: CreateInvoiceModal
           <div className="space-y-4">
             {/* Contract selector */}
             <div>
-              <label className="mb-1 block text-xs font-medium text-muted-foreground">Contract</label>
+              <label className="mb-1 block text-xs font-medium text-muted-foreground">Agreement</label>
               <select
                 value={contractId}
                 onChange={(e) => handleContractChange(e.target.value)}
                 required
                 className="w-full rounded-lg border-b-2 border-border bg-transparent px-3 py-2 text-sm text-heading focus:border-primary focus:outline-none"
               >
-                <option value="">Select contract...</option>
+                <option value="">Select agreement...</option>
                 {activeContracts.map((c) => {
                   const contact = contactMap.get(c.contact_id)
                   return (

@@ -9,9 +9,10 @@ interface CreateTaskModalProps {
   onClose: () => void
   prefillContactId?: string | null
   prefillDealId?: string | null
+  prefillDueDate?: string | null
 }
 
-export default function CreateTaskModal({ onClose, prefillContactId, prefillDealId }: CreateTaskModalProps) {
+export default function CreateTaskModal({ onClose, prefillContactId, prefillDealId, prefillDueDate }: CreateTaskModalProps) {
   const addTask = useTaskStore((s) => s.addTask)
   const contacts = useContactStore((s) => s.contacts)
 
@@ -19,7 +20,7 @@ export default function CreateTaskModal({ onClose, prefillContactId, prefillDeal
   const [description, setDescription] = useState('')
   const [type, setType] = useState<TaskType>('follow_up')
   const [priority, setPriority] = useState<TaskPriority>('medium')
-  const [dueDate, setDueDate] = useState(new Date().toISOString().split('T')[0])
+  const [dueDate, setDueDate] = useState(prefillDueDate ?? new Date().toISOString().split('T')[0])
   const [dueTime, setDueTime] = useState('')
   const [assignedTo, setAssignedTo] = useState('Rep A')
   const [contactId, setContactId] = useState(prefillContactId ?? '')

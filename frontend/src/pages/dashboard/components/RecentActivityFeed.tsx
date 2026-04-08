@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { format } from 'date-fns'
-import { FileText, Phone, Mail, Users, MapPin, CheckSquare, CircleCheckBig, TrendingUp, ArrowRightLeft, Send } from 'lucide-react'
+import { FileText, Phone, Mail, Users, MapPin, CheckSquare, CircleCheckBig, TrendingUp, ArrowRightLeft, Send, DollarSign, Receipt, RadioTower, Ban } from 'lucide-react'
 import { activitiesApi } from '@/lib/api'
 import useContactStore from '@/stores/contactStore'
 import type { Activity, ActivityType } from '@/types/contact'
@@ -16,7 +16,14 @@ const typeConfig: Record<ActivityType, { icon: typeof FileText; color: string }>
   deal_created:   { icon: TrendingUp,     color: 'bg-success/10 text-success' },
   stage_change:   { icon: ArrowRightLeft, color: 'bg-info/10 text-info' },
   quote_sent:     { icon: Send,           color: 'bg-warning/10 text-warning' },
+  payment_succeeded: { icon: DollarSign,  color: 'bg-success/10 text-success' },
+  payment_failed: { icon: Ban,            color: 'bg-danger/10 text-danger' },
+  payment_refunded: { icon: Receipt,      color: 'bg-info/10 text-info' },
+  subscription_created: { icon: RadioTower, color: 'bg-primary/10 text-primary' },
+  subscription_cancelled: { icon: Ban,    color: 'bg-muted text-muted-foreground' },
 }
+
+const fallbackConfig = { icon: FileText, color: 'bg-muted text-muted-foreground' }
 
 export default function RecentActivityFeed() {
   const [activities, setActivities] = useState<Activity[]>([])
@@ -42,7 +49,7 @@ export default function RecentActivityFeed() {
       ) : (
         <div className="space-y-3">
           {recent.map((activity) => {
-            const config = typeConfig[activity.type]
+            const config = typeConfig[activity.type] ?? fallbackConfig
             const Icon = config.icon
             const contact = contactMap.get(activity.contact_id)
             return (

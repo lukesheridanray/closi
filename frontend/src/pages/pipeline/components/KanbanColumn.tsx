@@ -27,7 +27,7 @@ export default function KanbanColumn({ stage, deals, onDealClick }: KanbanColumn
 
   return (
     <div
-      className={`min-w-[280px] w-[280px] flex-shrink-0 flex flex-col rounded-xl border border-border bg-white shadow-card ${
+      className={`min-w-[320px] w-[320px] flex-shrink-0 flex flex-col rounded-xl border border-border bg-white shadow-card ${
         isDimmed ? 'opacity-75' : ''
       }`}
     >
@@ -72,13 +72,6 @@ export default function KanbanColumn({ stage, deals, onDealClick }: KanbanColumn
         </div>
       </SortableContext>
 
-      {/* Footer */}
-      <div className="border-t border-border px-3 py-2">
-        <button className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-heading transition-colors w-full">
-          <Plus className="h-4 w-4" />
-          Add {dealLabel.singular}
-        </button>
-      </div>
     </div>
   )
 }
