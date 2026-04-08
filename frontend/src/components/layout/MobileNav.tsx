@@ -2,13 +2,10 @@ import { NavLink } from 'react-router-dom'
 import { mainNavItems } from '@/lib/navigation'
 import { cn } from '@/lib/utils'
 
-/** Bottom navigation bar for mobile (<768px) - shows first 5 items */
-const mobileItems = mainNavItems.slice(0, 5)
-
 export default function MobileNav() {
   return (
     <nav className="fixed inset-x-0 bottom-0 z-30 flex border-t border-border bg-white md:hidden">
-      {mobileItems.map((item) => (
+      {mainNavItems.map((item) => (
         <NavLink
           key={item.path}
           to={item.path}

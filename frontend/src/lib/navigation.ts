@@ -1,15 +1,8 @@
 import {
   LayoutDashboard,
   CreditCard,
-  Kanban,
   Users,
-  CheckSquare,
-  CalendarDays,
-  FileText,
-  FileSignature,
-  Receipt,
-  Package,
-  BarChart3,
+  CalendarCheck,
   Settings,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -21,17 +14,10 @@ export interface NavItem {
 }
 
 export const mainNavItems: NavItem[] = [
-  { label: 'Operations', path: '/', icon: LayoutDashboard },
-  { label: 'Sales Board', path: '/pipeline', icon: Kanban },
-  { label: 'Accounts', path: '/contacts', icon: Users },
-  { label: 'Follow-Up', path: '/tasks', icon: CheckSquare },
-  { label: 'Calendar', path: '/calendar', icon: CalendarDays },
-  { label: 'Quotes', path: '/quotes', icon: FileText },
-  { label: 'Agreements', path: '/contracts', icon: FileSignature },
+  { label: 'Dashboard', path: '/', icon: LayoutDashboard },
+  { label: 'Accounts', path: '/accounts', icon: Users },
   { label: 'Billing', path: '/billing', icon: CreditCard },
-  { label: 'Invoices', path: '/invoices', icon: Receipt },
-  { label: 'Inventory', path: '/inventory', icon: Package },
-  { label: 'Monitoring', path: '/reports', icon: BarChart3 },
+  { label: 'Tasks', path: '/tasks', icon: CalendarCheck },
 ]
 
 export const bottomNavItems: NavItem[] = [

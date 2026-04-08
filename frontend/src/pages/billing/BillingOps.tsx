@@ -6,7 +6,7 @@ import { authnetApi, billingApi, invoicesApi, paymentsApi } from '@/lib/api'
 import useInvoiceStore from '@/stores/invoiceStore'
 import useContractStore from '@/stores/contractStore'
 import { openHostedProfilePage } from '@/lib/authnetHostedPage'
-import useContactStore from '@/stores/contactStore'
+// contactStore no longer needed here — accounts are navigated to directly
 import type { BillingAccountListResponse, BillingAccountRow } from '@/lib/api'
 
 type ReconcileReport = Awaited<ReturnType<typeof authnetApi.reconcile>>
@@ -42,7 +42,6 @@ const flagLabels: Record<string, string> = {
 
 export default function BillingOps() {
   const navigate = useNavigate()
-  const selectContact = useContactStore((s) => s.selectContact)
   const [data, setData] = useState<BillingAccountListResponse | null>(null)
   const [searchInput, setSearchInput] = useState('')
   const [flagFilter, setFlagFilter] = useState('all')
@@ -135,8 +134,7 @@ export default function BillingOps() {
   }
 
   function openAccount(contactId: string) {
-    selectContact(contactId)
-    navigate('/contacts')
+    navigate(`/accounts/${contactId}`)
   }
 
   async function handleReconcile() {
