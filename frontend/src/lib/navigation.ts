@@ -3,6 +3,7 @@ import {
   CreditCard,
   Users,
   CalendarCheck,
+  Kanban,
   Settings,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
@@ -15,6 +16,7 @@ export interface NavItem {
 
 export const mainNavItems: NavItem[] = [
   { label: 'Dashboard', path: '/', icon: LayoutDashboard },
+  { label: 'Pipeline', path: '/pipeline', icon: Kanban },
   { label: 'Accounts', path: '/accounts', icon: Users },
   { label: 'Billing', path: '/billing', icon: CreditCard },
   { label: 'Tasks', path: '/tasks', icon: CalendarCheck },

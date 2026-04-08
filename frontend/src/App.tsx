@@ -13,6 +13,7 @@ import MainLayout from '@/components/layout/MainLayout'
 
 // Lazy-loaded page components
 const Dashboard = lazy(() => import('@/pages/dashboard/Dashboard'))
+const Pipeline = lazy(() => import('@/pages/pipeline/Pipeline'))
 const AccountList = lazy(() => import('@/pages/accounts/AccountList'))
 const AccountDetail = lazy(() => import('@/pages/accounts/AccountDetail'))
 const BillingHub = lazy(() => import('@/pages/billing/BillingHub'))
@@ -41,6 +42,7 @@ function App() {
       <Route element={<ProtectedRoute />}>
         <Route element={<MainLayout />}>
           <Route index element={<Suspense fallback={<PageLoader />}><Dashboard /></Suspense>} />
+          <Route path="pipeline" element={<Suspense fallback={<PageLoader />}><Pipeline /></Suspense>} />
           <Route path="accounts" element={<Suspense fallback={<PageLoader />}><AccountList /></Suspense>} />
           <Route path="accounts/:id" element={<Suspense fallback={<PageLoader />}><AccountDetail /></Suspense>} />
           <Route path="billing" element={<Suspense fallback={<PageLoader />}><BillingHub /></Suspense>} />
