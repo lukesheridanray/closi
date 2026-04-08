@@ -57,7 +57,7 @@ export default function AuthLayout({ children }: AuthLayoutProps) {
             LSRV CRM
           </h1>
           <p className="mb-8 text-base leading-relaxed text-white/70">
-            The modern CRM built for home service businesses. Manage leads, close deals, and grow your revenue.
+            The CRM for installers and home service teams. Track leads, manage installs, and grow recurring revenue.
           </p>
           <div className="flex items-center justify-center gap-3">
             <div className="h-1 w-8 rounded-full bg-white/30" />

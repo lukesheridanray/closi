@@ -13,8 +13,10 @@ import MainLayout from '@/components/layout/MainLayout'
 
 // Lazy-loaded page components
 const Dashboard = lazy(() => import('@/pages/dashboard/Dashboard'))
+const BillingOps = lazy(() => import('@/pages/billing/BillingOps'))
 const PipelineBoard = lazy(() => import('@/pages/pipeline/PipelineBoard'))
 const ContactList = lazy(() => import('@/pages/contacts/ContactList'))
+const AddLead = lazy(() => import('@/pages/contacts/AddLead'))
 const TaskList = lazy(() => import('@/pages/tasks/TaskList'))
 const Calendar = lazy(() => import('@/pages/calendar/Calendar'))
 const QuoteList = lazy(() => import('@/pages/quotes/QuoteList'))
@@ -46,8 +48,10 @@ function App() {
       <Route element={<ProtectedRoute />}>
         <Route element={<MainLayout />}>
           <Route index element={<Suspense fallback={<PageLoader />}><Dashboard /></Suspense>} />
+          <Route path="billing" element={<Suspense fallback={<PageLoader />}><BillingOps /></Suspense>} />
           <Route path="pipeline" element={<Suspense fallback={<PageLoader />}><PipelineBoard /></Suspense>} />
           <Route path="contacts" element={<Suspense fallback={<PageLoader />}><ContactList /></Suspense>} />
+          <Route path="contacts/new" element={<Suspense fallback={<PageLoader />}><AddLead /></Suspense>} />
           <Route path="tasks" element={<Suspense fallback={<PageLoader />}><TaskList /></Suspense>} />
           <Route path="calendar" element={<Suspense fallback={<PageLoader />}><Calendar /></Suspense>} />
           <Route path="quotes" element={<Suspense fallback={<PageLoader />}><QuoteList /></Suspense>} />

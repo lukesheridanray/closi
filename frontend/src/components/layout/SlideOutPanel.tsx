@@ -2,9 +2,9 @@ import { useEffect, useRef } from 'react'
 import { X } from 'lucide-react'
 
 const widths = {
-  sm: 'w-[360px]',
-  md: 'w-[480px]',
-  lg: 'w-[640px]',
+  sm: 'max-w-2xl',
+  md: 'max-w-3xl',
+  lg: 'max-w-5xl',
 } as const
 
 interface SlideOutPanelProps {
@@ -34,11 +34,12 @@ export default function SlideOutPanel({
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [open, onClose])
 
-  // Focus trap: focus panel when opened
   useEffect(() => {
     if (open) {
       setTimeout(() => panelRef.current?.focus(), 0)
+      document.body.style.overflow = 'hidden'
     }
+    return () => { document.body.style.overflow = '' }
   }, [open])
 
   if (!open) return null
@@ -51,26 +52,28 @@ export default function SlideOutPanel({
         onClick={onClose}
       />
 
-      {/* Panel */}
-      <div
-        ref={panelRef}
-        tabIndex={-1}
-        className={`fixed right-0 top-0 z-50 flex h-full flex-col bg-white shadow-modal ${widths[width]} animate-in slide-in-from-right duration-200`}
-      >
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-border px-6 py-4">
-          <h2 className="text-lg font-semibold text-heading">{title}</h2>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-page hover:text-body"
-          >
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+      {/* Modal */}
+      <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto py-4 px-4">
+        <div
+          ref={panelRef}
+          tabIndex={-1}
+          className={`relative w-full ${widths[width]} rounded-2xl bg-white shadow-modal`}
+        >
+          {/* Header */}
+          <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-white px-6 py-4 rounded-t-2xl">
+            <h2 className="text-lg font-semibold text-heading">{title}</h2>
+            <button
+              onClick={onClose}
+              className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-page hover:text-body"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
 
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto px-6 py-4">
-          {children}
+          {/* Body */}
+          <div className="max-h-[70vh] overflow-y-auto px-6 py-4">
+            {children}
+          </div>
         </div>
       </div>
     </>

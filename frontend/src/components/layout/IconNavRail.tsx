@@ -1,4 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom'
+import { useState } from 'react'
 import { LogOut } from 'lucide-react'
 import { mainNavItems, bottomNavItems } from '@/lib/navigation'
 import useAuthStore from '@/stores/authStore'
@@ -8,6 +9,7 @@ export default function IconNavRail() {
   const user = useAuthStore((s) => s.user)
   const logout = useAuthStore((s) => s.logout)
   const navigate = useNavigate()
+  const [hoveredLabel, setHoveredLabel] = useState<string | null>(null)
 
   const handleLogout = () => {
     logout()
@@ -23,73 +25,103 @@ export default function IconNavRail() {
       {/* Brand icon */}
       <div className="flex h-14 items-center justify-center">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-sm font-bold text-white">
-          C
+          L
         </div>
       </div>
 
       {/* Main nav icons */}
       <div className="flex flex-1 flex-col items-center gap-2 py-2">
         {mainNavItems.map((item) => (
-          <NavLink
+          <div
             key={item.path}
-            to={item.path}
-            end={item.path === '/'}
-            title={item.label}
-            className={({ isActive }) =>
-              cn(
-                'relative flex h-10 w-10 items-center justify-center rounded-lg transition-colors',
-                isActive
-                  ? 'bg-primary-light text-primary'
-                  : 'text-muted-foreground hover:bg-page hover:text-body',
-              )
-            }
+            className="relative"
+            onMouseEnter={() => setHoveredLabel(item.label)}
+            onMouseLeave={() => setHoveredLabel((current) => (current === item.label ? null : current))}
           >
-            {({ isActive }) => (
-              <>
-                {isActive && (
-                  <span className="absolute left-0 top-1/2 h-6 w-[3px] -translate-x-[5px] -translate-y-1/2 rounded-full bg-primary" />
-                )}
-                <item.icon className="h-5 w-5" />
-              </>
+            <NavLink
+              to={item.path}
+              end={item.path === '/'}
+              className={({ isActive }) =>
+                cn(
+                  'relative flex h-10 w-10 items-center justify-center rounded-lg transition-colors',
+                  isActive
+                    ? 'bg-primary-light text-primary'
+                    : 'text-muted-foreground hover:bg-page hover:text-body',
+                )
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  {isActive && (
+                    <span className="absolute left-0 top-1/2 h-6 w-[3px] -translate-x-[5px] -translate-y-1/2 rounded-full bg-primary" />
+                  )}
+                  <item.icon className="h-5 w-5" />
+                </>
+              )}
+            </NavLink>
+            {hoveredLabel === item.label && (
+              <div className="pointer-events-none absolute left-[52px] top-1/2 -translate-y-1/2 whitespace-nowrap rounded-md bg-heading px-2.5 py-1.5 text-xs font-medium text-white shadow-dropdown">
+                {item.label}
+              </div>
             )}
-          </NavLink>
+          </div>
         ))}
       </div>
 
       {/* Bottom: settings, logout, avatar */}
       <div className="flex flex-col items-center gap-1 border-t border-border py-3">
         {bottomNavItems.map((item) => (
-          <NavLink
+          <div
             key={item.path}
-            to={item.path}
-            title={item.label}
-            className={({ isActive }) =>
-              cn(
-                'relative flex h-10 w-10 items-center justify-center rounded-lg transition-colors',
-                isActive
-                  ? 'bg-primary-light text-primary'
-                  : 'text-muted-foreground hover:bg-page hover:text-body',
-              )
-            }
+            className="relative"
+            onMouseEnter={() => setHoveredLabel(item.label)}
+            onMouseLeave={() => setHoveredLabel((current) => (current === item.label ? null : current))}
           >
-            {({ isActive }) => (
-              <>
-                {isActive && (
-                  <span className="absolute left-0 top-1/2 h-6 w-[3px] -translate-x-[5px] -translate-y-1/2 rounded-full bg-primary" />
-                )}
-                <item.icon className="h-5 w-5" />
-              </>
+            <NavLink
+              to={item.path}
+              className={({ isActive }) =>
+                cn(
+                  'relative flex h-10 w-10 items-center justify-center rounded-lg transition-colors',
+                  isActive
+                    ? 'bg-primary-light text-primary'
+                    : 'text-muted-foreground hover:bg-page hover:text-body',
+                )
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  {isActive && (
+                    <span className="absolute left-0 top-1/2 h-6 w-[3px] -translate-x-[5px] -translate-y-1/2 rounded-full bg-primary" />
+                  )}
+                  <item.icon className="h-5 w-5" />
+                </>
+              )}
+            </NavLink>
+            {hoveredLabel === item.label && (
+              <div className="pointer-events-none absolute left-[52px] top-1/2 -translate-y-1/2 whitespace-nowrap rounded-md bg-heading px-2.5 py-1.5 text-xs font-medium text-white shadow-dropdown">
+                {item.label}
+              </div>
             )}
-          </NavLink>
+          </div>
         ))}
 
-        <button
-          onClick={handleLogout}
-          title="Logout"
-          className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-page hover:text-danger"
+        <div
+          className="relative"
+          onMouseEnter={() => setHoveredLabel('Logout')}
+          onMouseLeave={() => setHoveredLabel((current) => (current === 'Logout' ? null : current))}
         >
-          <LogOut className="h-5 w-5" />
-        </button>
+          <button
+            onClick={handleLogout}
+            className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-page hover:text-danger"
+          >
+            <LogOut className="h-5 w-5" />
+          </button>
+          {hoveredLabel === 'Logout' && (
+            <div className="pointer-events-none absolute left-[52px] top-1/2 -translate-y-1/2 whitespace-nowrap rounded-md bg-heading px-2.5 py-1.5 text-xs font-medium text-white shadow-dropdown">
+              Logout
+            </div>
+          )}
+        </div>
 
         {/* User avatar with online dot */}
         <div className="relative mt-1">
